@@ -38,6 +38,7 @@ namespace YesChef
         {
             Instance = this;
             HighScore = PlayerPrefs.GetInt(HighScoreKey, 0);
+            remainingTime = matchSeconds;
             Time.timeScale = 0f;
         }
 

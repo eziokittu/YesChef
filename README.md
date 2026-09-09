@@ -21,7 +21,38 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 
 ## Controls
 
-Controls will be documented here once the first playable slice is complete.
+- **WASD / Arrow keys:** Move
+- **E:** Interact, place, pick up, deliver, or discard
+- **1 / 2 / 3 near the refrigerator:** Take vegetable, cheese, or meat
+- **Escape:** Pause or resume
+- Screen buttons: Start, Pause, Resume, Play Again, and Quit
+
+## Implemented features
+
+- Fixed top-down 3D kitchen with the entire play area visible
+- Four simultaneous randomized orders with duplicate ingredients supported
+- 50/50 selection between two- and three-ingredient orders
+- One-item player inventory
+- Two-second vegetable chopping with countdown and prepared visual
+- Two independent six-second meat cooking slots with countdowns and cooked visual
+- Direct cheese delivery and a trash station for all ingredient states
+- Order scoring using ingredient value minus floored seconds open, including negative scores
+- Five-second order respawn delay and fading score feedback
+- Three-minute game timer, instructions, pause, results, restart, quit, current score, and persistent high score
+- TextMesh Pro HUD and world-space station/order displays
+
+## Low-poly art pipeline
+
+- Editable Blender source: `ArtSource/YesChef_LowPoly.blend`
+- Blender generation script: `Tools/Blender/generate_low_poly_assets.py`
+- Unity-ready FBXs: `Assets/Art/Models/`
+- Included assets: chef, refrigerator, chopping table, stove, trash bin, customer window, floor/wall modules, raw/chopped vegetables, cheese, and raw/cooked meat
+
+Regenerate the models with Blender 5.2+ from the repository root:
+
+```powershell
+& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python ".\Tools\Blender\generate_low_poly_assets.py"
+```
 
 ## Planned project structure
 
@@ -41,16 +72,14 @@ Assets/
   Tests/
 ```
 
-## Implementation order
+## Opening and testing
 
-1. Create the Unity 6000.3.11f1 Core 3D project in this repository folder. (Complete.)
-2. Set asset serialization to **Force Text** and version-control mode to **Visible Meta Files**. (Verified.)
-3. Block out one kitchen scene with walls, four windows, refrigerator, table, two-slot stove, trash, player, and a fixed top-down camera.
-4. Build the player movement and a single reusable interaction interface.
-5. Implement the ingredient state flow: raw, preparing, prepared, held, and delivered/discarded.
-6. Implement orders and scoring independently of scene UI so the rules can be unit tested.
-7. Add game states: instructions, playing, paused, and results/restart.
-8. Add station/order UI, persistent high score, then polish and test.
+1. Open the repository folder in Unity `6000.3.11f1` or another Unity 6000+ editor.
+2. Open `Assets/Scenes/Kitchen.unity`.
+3. Press Play and select **Start Cooking**.
+4. To regenerate the scene, use **Tools > Yes Chef > Build Playable Kitchen**.
+
+The editor validator is `Assets/Editor/YesChefProjectValidator.cs`. It checks scene references, all 13 model imports, four customer windows, TextMesh Pro font assignment, two stove slots, required UI, and the scoring examples.
 
 ## Submission notes
 

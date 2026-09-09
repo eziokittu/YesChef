@@ -94,8 +94,7 @@ namespace YesChef
 
         private void CompleteOrder()
         {
-            var baseScore = required.Sum(IngredientRules.Score);
-            var awarded = baseScore - Mathf.FloorToInt(orderAge);
+            var awarded = OrderScoring.Calculate(required, orderAge);
             GameManager.Instance.AddScore(awarded);
             if (scorePopupText != null)
             {

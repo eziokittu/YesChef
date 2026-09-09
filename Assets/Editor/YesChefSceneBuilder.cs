@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEditor;
@@ -20,10 +21,12 @@ namespace YesChef.Editor
         private static readonly Color Ink = new(0.08f, 0.10f, 0.13f, 1f);
         private static readonly Color Tomato = new(0.90f, 0.20f, 0.15f, 1f);
         private static readonly Color Panel = new(0.055f, 0.07f, 0.09f, 0.94f);
+        private static TMP_FontAsset defaultFont;
 
         [MenuItem("Tools/Yes Chef/Build Playable Kitchen")]
         public static void BuildPlayableKitchen()
         {
+            EnsureTextMeshProResources();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var models = LoadModels();
@@ -31,6 +34,7 @@ namespace YesChef.Editor
             CreateCameraAndLighting();
 
             var gameRoot = new GameObject("GAMEPLAY");
+            gameRoot.AddComponent<RuntimeVerifier>();
             var factory = gameRoot.AddComponent<IngredientFactory>();
             factory.vegetableRawPrefab = models["VegetableRaw"];
             factory.vegetablePreparedPrefab = models["VegetableChopped"];
@@ -80,6 +84,22 @@ namespace YesChef.Editor
             Debug.Log("Yes Chef playable kitchen created and saved to " + ScenePath);
         }
 
+        private static void EnsureTextMeshProResources()
+        {
+            const string fontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
+            defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
+            if (defaultFont != null) return;
+
+            var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(TMP_Text).Assembly);
+            if (package == null) throw new FileNotFoundException("The Unity UI/TextMesh Pro package is not installed.");
+            var resourcesPackage = Path.Combine(package.resolvedPath, "Package Resources", "TMP Essential Resources.unitypackage");
+            if (!File.Exists(resourcesPackage)) throw new FileNotFoundException("TMP Essential Resources package was not found.", resourcesPackage);
+            AssetDatabase.ImportPackage(resourcesPackage, false);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
+            if (defaultFont == null) throw new MissingReferenceException("TMP LiberationSans SDF font was not imported.");
+        }
+
         private static Dictionary<string, GameObject> LoadModels()
         {
             var names = new[]
@@ -101,16 +121,40 @@ namespace YesChef.Editor
         private static void CreateEnvironment(Dictionary<string, GameObject> models)
         {
             var environment = new GameObject("ENVIRONMENT").transform;
-            AddModel(models["KitchenFloor"], "Kitchen Floor", Vector3.zero, Quaternion.identity, new Vector3(7f, 1f, 5f), environment);
-            AddModel(models["KitchenWall"], "North Wall", new Vector3(0, 0, 5f), Quaternion.identity, new Vector3(3.5f, 1f, 1f), environment);
-            AddModel(models["KitchenWall"], "South Wall", new Vector3(0, 0, -5f), Quaternion.Euler(0, 180, 0), new Vector3(3.5f, 1f, 1f), environment);
-            AddModel(models["KitchenWall"], "East Wall", new Vector3(7f, 0, 0), Quaternion.Euler(0, 90, 0), new Vector3(2.5f, 1f, 1f), environment);
-            AddModel(models["KitchenWall"], "West Wall", new Vector3(-7f, 0, 0), Quaternion.Euler(0, -90, 0), new Vector3(2.5f, 1f, 1f), environment);
+            var floorMaterial = GetOrCreateMaterial("Kitchen Floor", new Color(0.18f, 0.23f, 0.24f));
+            var wallMaterial = GetOrCreateMaterial("Kitchen Walls", new Color(0.76f, 0.79f, 0.72f));
+            CreateVisualBox("Kitchen Floor", new Vector3(0, -0.09f, 0), new Vector3(14f, 0.18f, 10f), floorMaterial, environment);
+            CreateVisualBox("North Wall", new Vector3(0, 1.25f, 5f), new Vector3(14f, 2.5f, 0.25f), wallMaterial, environment);
+            CreateVisualBox("South Border", new Vector3(0, 0.32f, -5f), new Vector3(14f, 0.64f, 0.25f), wallMaterial, environment);
+            CreateVisualBox("East Border", new Vector3(7f, 0.32f, 0), new Vector3(0.25f, 0.64f, 10f), wallMaterial, environment);
+            CreateVisualBox("West Border", new Vector3(-7f, 0.32f, 0), new Vector3(0.25f, 0.64f, 10f), wallMaterial, environment);
 
+            CreateBoundary("Floor Collider", new Vector3(0, -0.12f, 0), new Vector3(14f, 0.24f, 10f), environment);
             CreateBoundary("North Boundary", new Vector3(0, 1.25f, 5f), new Vector3(14f, 2.5f, 0.3f), environment);
             CreateBoundary("South Boundary", new Vector3(0, 1.25f, -5f), new Vector3(14f, 2.5f, 0.3f), environment);
             CreateBoundary("East Boundary", new Vector3(7f, 1.25f, 0), new Vector3(0.3f, 2.5f, 10f), environment);
             CreateBoundary("West Boundary", new Vector3(-7f, 1.25f, 0), new Vector3(0.3f, 2.5f, 10f), environment);
+        }
+
+        private static Material GetOrCreateMaterial(string name, Color color)
+        {
+            var path = $"Assets/Materials/{name.Replace(' ', '_')}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null) return existing;
+            var material = new Material(Shader.Find("Standard")) { name = name, color = color };
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        private static void CreateVisualBox(string name, Vector3 position, Vector3 size, Material material, Transform parent)
+        {
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = name;
+            visual.transform.SetParent(parent);
+            visual.transform.position = position;
+            visual.transform.localScale = size;
+            Object.DestroyImmediate(visual.GetComponent<Collider>());
+            visual.GetComponent<Renderer>().sharedMaterial = material;
         }
 
         private static void CreateCameraAndLighting()
@@ -119,10 +163,10 @@ namespace YesChef.Editor
             cameraObject.tag = "MainCamera";
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = 8.4f;
+            camera.orthographicSize = 7.6f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.055f, 0.075f, 0.085f);
-            cameraObject.transform.position = new Vector3(0, 13.5f, -10.5f);
+            cameraObject.transform.position = new Vector3(0, 15.5f, -8.5f);
             cameraObject.transform.LookAt(new Vector3(0, 0, 0.4f));
 
             var lightObject = new GameObject("Sun Light");
@@ -140,7 +184,7 @@ namespace YesChef.Editor
         private static PlayerController CreatePlayer(GameObject model)
         {
             var root = new GameObject("Player Chef");
-            root.transform.position = new Vector3(0, 0, -3.0f);
+            root.transform.position = new Vector3(0, 0, -2.2f);
             var controller = root.AddComponent<CharacterController>();
             controller.radius = 0.42f;
             controller.height = 2.25f;
@@ -228,7 +272,10 @@ namespace YesChef.Editor
         {
             var canvasObject = new GameObject("Game UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = Camera.main;
+            canvas.planeDistance = 1f;
+            canvas.sortingOrder = 100;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
@@ -244,7 +291,6 @@ namespace YesChef.Editor
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -28), new Vector2(300, 80));
             var prompt = CreateScreenText(canvas.transform, "Interaction Prompt", string.Empty, 32, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 42), new Vector2(1100, 70));
-            AddTextBackdrop(prompt.rectTransform, new Color(0.02f, 0.025f, 0.03f, 0.82f));
 
             var pauseButton = CreateButton(canvas.transform, "Pause Button", "PAUSE", new Vector2(1, 1), new Vector2(-180, -42), new Vector2(150, 54));
             var quitButton = CreateButton(canvas.transform, "Quit Button", "QUIT", new Vector2(1, 1), new Vector2(-28, -42), new Vector2(120, 54));
@@ -333,6 +379,7 @@ namespace YesChef.Editor
             var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(canvasObject.transform, false);
             var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = defaultFont;
             text.text = value;
             text.fontSize = fontSize;
             text.alignment = TextAlignmentOptions.Center;
@@ -365,6 +412,7 @@ namespace YesChef.Editor
             var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(parent, false);
             var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = defaultFont;
             text.text = value;
             text.fontSize = fontSize;
             text.fontStyle = FontStyles.Normal;

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace YesChef
@@ -52,7 +54,15 @@ namespace YesChef
             IngredientType.Vegetable => new Color(0.38f, 0.9f, 0.35f),
             IngredientType.Cheese => new Color(1f, 0.78f, 0.2f),
             IngredientType.Meat => new Color(1f, 0.32f, 0.32f),
-            _ => Color.white
+            _ => UnityEngine.Color.white
         };
+    }
+
+    public static class OrderScoring
+    {
+        public static int Calculate(IEnumerable<IngredientType> ingredients, float secondsOpen)
+        {
+            return ingredients.Sum(IngredientRules.Score) - Mathf.FloorToInt(secondsOpen);
+        }
     }
 }
