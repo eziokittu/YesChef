@@ -4,12 +4,20 @@
 
 # Keep Unity's text-serialized assets consistent across platforms.
 *.cs text eol=lf
+*.anim text eol=lf
+*.asmdef text eol=lf
+*.asmref text eol=lf
+*.asset text eol=lf
 *.cginc text eol=lf
 *.compute text eol=lf
+*.controller text eol=lf
 *.hlsl text eol=lf
+*.inputactions text eol=lf
 *.json text eol=lf
+*.mat text eol=lf
 *.md text eol=lf
 *.meta text eol=lf
+*.prefab text eol=lf
 *.shader text eol=lf
 *.shadergraph text eol=lf
 *.unity text eol=lf
