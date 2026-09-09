@@ -105,8 +105,15 @@ def begin_asset(name):
 
 def parent_parts(collection, root):
     for obj in collection.objects:
-        if obj != root:
+        if obj != root and obj.parent is None:
             obj.parent = root
+
+
+def empty(collection, name, location):
+    obj = bpy.data.objects.new(name, None)
+    obj.location = location
+    collection.objects.link(obj)
+    return obj
 
 
 def export_asset(name, collection):
@@ -164,11 +171,26 @@ box(c, "WallTrim", (0, -0.14, 0.12), (4, 0.08, 0.24), WOOD_LIGHT, 0.02)
 parent_parts(c, root); assets["KitchenWall"] = c
 
 c, root = begin_asset("Refrigerator")
-box(c, "Body", (0, 0, 1.35), (1.45, 0.85, 2.7), WHITE, 0.10)
+# The main compartment is built as a shallow shell so its stocked interior is
+# visible whenever Unity rotates the door around the authored hinge.
+box(c, "FridgeBack", (0, 0.34, 1.35), (1.45, 0.16, 2.7), WHITE, 0.08)
+box(c, "FridgeLeft", (-0.66, 0, 1.35), (0.13, 0.72, 2.7), WHITE, 0.05)
+box(c, "FridgeRight", (0.66, 0, 1.35), (0.13, 0.72, 2.7), WHITE, 0.05)
+box(c, "FridgeTop", (0, 0, 2.64), (1.32, 0.72, 0.13), WHITE, 0.05)
+box(c, "FridgeBottom", (0, 0, 0.08), (1.32, 0.72, 0.13), WHITE, 0.05)
 box(c, "FreezerDoor", (0, -0.45, 2.10), (1.32, 0.10, 0.95), WHITE, 0.035)
-box(c, "MainDoor", (0, -0.45, 0.92), (1.32, 0.10, 1.30), WHITE, 0.035)
 box(c, "HandleTop", (0.48, -0.54, 1.95), (0.10, 0.10, 0.48), DARK, 0.025)
-box(c, "HandleBottom", (0.48, -0.54, 1.10), (0.10, 0.10, 0.58), DARK, 0.025)
+for shelf_z in (0.48, 0.91, 1.34):
+    box(c, f"InteriorShelf_{shelf_z}", (0, -0.02, shelf_z), (1.10, 0.58, 0.055), STEEL, 0.015)
+ico(c, "StockVegetable", (-0.30, -0.14, 0.64), 0.18, GREEN, subdivisions=1)
+box(c, "StockCheese", (0.28, -0.12, 1.05), (0.34, 0.24, 0.20), YELLOW, 0.025)
+ico(c, "StockMeat", (-0.20, -0.13, 1.49), 0.19, MEAT, scale=(1.35, 0.75, 0.55), subdivisions=1)
+door_hinge = empty(c, "MainDoorHinge", (-0.66, -0.45, 0.92))
+main_door = box(c, "MainDoor", (0, -0.45, 0.92), (1.32, 0.10, 1.30), WHITE, 0.035)
+main_handle = box(c, "HandleBottom", (0.48, -0.54, 1.10), (0.10, 0.10, 0.58), DARK, 0.025)
+for door_part in (main_door, main_handle):
+    door_part.parent = door_hinge
+    door_part.matrix_parent_inverse = door_hinge.matrix_world.inverted()
 parent_parts(c, root); assets["Refrigerator"] = c
 
 c, root = begin_asset("ChoppingTable")

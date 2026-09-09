@@ -61,7 +61,8 @@ namespace YesChef
         public GameObject dialogueBubble;
 
         [Header("Timing")]
-        [Min(0f)] public float respawnSeconds = 5f;
+        [Min(0f)] public float respawnMinimum = 2.5f;
+        [Min(0f)] public float respawnMaximum = 6f;
         [Min(0.1f)] public float popupSeconds = 2.5f;
         [Min(0.1f)] public float popupFadeSeconds = 1f;
 
@@ -71,6 +72,7 @@ namespace YesChef
         private float dialogueSeconds;
         private float bubbleVisibleSeconds;
         private float popupRemaining;
+        private float waitDuration;
 
         private bool HasOrder => state == VisitState.Serving && currentOrder != null;
 
@@ -111,15 +113,28 @@ namespace YesChef
             RefreshOrderDisplay();
         }
 
-        public void ResetWindow()
+        public void ResetWindow(bool startServing, float initialDelay)
         {
             popupRemaining = 0f;
             ClearPopup();
-            customerRoot.gameObject.SetActive(true);
-            customerRoot.position = servicePoint.position;
-            customerRoot.rotation = servicePoint.rotation;
-            avatar.Randomize();
-            CreateOrder();
+            stateSeconds = 0f;
+            if (startServing)
+            {
+                customerRoot.gameObject.SetActive(true);
+                customerRoot.position = servicePoint.position;
+                FaceCounter();
+                avatar.Randomize();
+                CreateOrder();
+            }
+            else
+            {
+                currentOrder = null;
+                waitDuration = initialDelay;
+                state = VisitState.Waiting;
+                customerRoot.gameObject.SetActive(false);
+                if (dialogueBubble != null) dialogueBubble.SetActive(false);
+                RefreshOrderDisplay();
+            }
         }
 
         private void UpdateVisit()
@@ -151,13 +166,17 @@ namespace YesChef
                     break;
                 case VisitState.Waiting:
                     customerRoot.gameObject.SetActive(false);
-                    CountDownThen(respawnSeconds, BeginArrival);
+                    CountDownThen(waitDuration, BeginArrival);
                     break;
                 case VisitState.ArrivingOnRoad:
                     MoveCustomer(roadPoint.position, VisitState.ArrivingToTable);
                     break;
                 case VisitState.ArrivingToTable:
-                    MoveCustomer(servicePoint.position, VisitState.Serving, CreateOrder);
+                    MoveCustomer(servicePoint.position, VisitState.Serving, () =>
+                    {
+                        FaceCounter();
+                        CreateOrder();
+                    });
                     break;
             }
         }
@@ -181,6 +200,7 @@ namespace YesChef
 
             if (scorePopupText != null)
             {
+                scorePopupText.transform.parent.gameObject.SetActive(true);
                 scorePopupText.text = awarded >= 0
                     ? $"<color=#7DFF72>+{awarded}</color>"
                     : $"<color=#FF6868>{awarded}</color>";
@@ -194,6 +214,7 @@ namespace YesChef
             currentOrder = null;
             state = VisitState.Thanking;
             stateSeconds = 0f;
+            waitDuration = Random.Range(respawnMinimum, respawnMaximum);
         }
 
         private void BeginLeavingToRoad()
@@ -210,6 +231,14 @@ namespace YesChef
             customerRoot.gameObject.SetActive(true);
             state = VisitState.ArrivingOnRoad;
             stateSeconds = 0f;
+        }
+
+        private void FaceCounter()
+        {
+            var counterDirection = transform.position - customerRoot.position;
+            counterDirection.y = 0f;
+            if (counterDirection.sqrMagnitude > 0.01f)
+                customerRoot.rotation = Quaternion.LookRotation(counterDirection, Vector3.up);
         }
 
         private void MoveCustomer(Vector3 target, VisitState nextState, System.Action arrived = null)
@@ -254,9 +283,11 @@ namespace YesChef
             if (orderText == null) return;
             if (!HasOrder)
             {
-                orderText.text = state == VisitState.Waiting ? "<b>TABLE OPEN</b>\nNext customer soon" : "<b>PLEASE WAIT</b>";
+                orderText.transform.parent.gameObject.SetActive(false);
                 return;
             }
+
+            orderText.transform.parent.gameObject.SetActive(true);
 
             var required = currentOrder.RequiredIngredients;
             var remaining = currentOrder.RemainingIngredients;
@@ -285,6 +316,7 @@ namespace YesChef
             if (scorePopupText == null) return;
             scorePopupText.text = string.Empty;
             scorePopupText.alpha = 1f;
+            scorePopupText.transform.parent.gameObject.SetActive(false);
         }
 
         private static string Pick(IReadOnlyList<string> values) => values[Random.Range(0, values.Count)];

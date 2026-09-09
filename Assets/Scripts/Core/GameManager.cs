@@ -30,15 +30,18 @@ namespace YesChef
         [Header("Panels")]
         public GameObject instructionsPanel;
         public GameObject pausePanel;
+        public GameObject quitConfirmationPanel;
         public GameObject resultsPanel;
         public TMP_Text resultScoreText;
         public TMP_Text newHighScoreText;
+        public TMP_Text pauseDetailsText;
 
         public GamePhase Phase { get; private set; } = GamePhase.Instructions;
         public int Score { get; private set; }
         public int HighScore { get; private set; }
 
         private float remainingTime;
+        private GamePhase phaseBeforeQuit;
 
         private void Awake()
         {
@@ -75,12 +78,17 @@ namespace YesChef
             player.ResetPlayer();
             choppingTable.ResetStation();
             foreach (var stove in stoves) stove.ResetStation();
-            foreach (var customerWindow in windows) customerWindow.ResetWindow();
+            for (var index = 0; index < windows.Length; index++)
+            {
+                var initialDelay = index == 0 ? 0f : Random.Range(4f, 7f) * index;
+                windows[index].ResetWindow(index == 0, initialDelay);
+            }
             fridgeMenu?.Close();
             adaptiveCamera?.ResetZoom();
             instructionsPanel.SetActive(false);
             pausePanel.SetActive(false);
             resultsPanel.SetActive(false);
+            if (quitConfirmationPanel != null) quitConfirmationPanel.SetActive(false);
             if (controlsStrip != null) controlsStrip.SetActive(true);
             SetInteractionPrompt(string.Empty);
             RefreshHud();
@@ -93,6 +101,7 @@ namespace YesChef
                 Phase = GamePhase.Paused;
                 Time.timeScale = 0f;
                 pausePanel.SetActive(true);
+                RefreshPauseDetails();
                 fridgeMenu?.Close();
             }
             else if (Phase == GamePhase.Paused)
@@ -123,12 +132,31 @@ namespace YesChef
 #endif
         }
 
+        public void RequestQuit()
+        {
+            if (Phase == GamePhase.ConfirmingQuit) return;
+            phaseBeforeQuit = Phase;
+            Phase = GamePhase.ConfirmingQuit;
+            Time.timeScale = 0f;
+            fridgeMenu?.Close();
+            if (quitConfirmationPanel != null) quitConfirmationPanel.SetActive(true);
+        }
+
+        public void CancelQuit()
+        {
+            if (Phase != GamePhase.ConfirmingQuit) return;
+            Phase = phaseBeforeQuit;
+            if (quitConfirmationPanel != null) quitConfirmationPanel.SetActive(false);
+            Time.timeScale = Phase == GamePhase.Playing ? 1f : 0f;
+        }
+
         private void ShowInstructions()
         {
             Phase = GamePhase.Instructions;
             instructionsPanel.SetActive(true);
             pausePanel.SetActive(false);
             resultsPanel.SetActive(false);
+            if (quitConfirmationPanel != null) quitConfirmationPanel.SetActive(false);
             if (controlsStrip != null) controlsStrip.SetActive(false);
         }
 
@@ -150,6 +178,15 @@ namespace YesChef
             if (controlsStrip != null) controlsStrip.SetActive(false);
             fridgeMenu?.Close();
             RefreshHud();
+        }
+
+        private void RefreshPauseDetails()
+        {
+            if (pauseDetailsText == null) return;
+            pauseDetailsText.text =
+                $"CURRENT SCORE  <b>{Score}</b>      BEST  <b>{HighScore}</b>\n\n" +
+                "<b>WASD / ARROWS</b>  Move        <b>E</b>  Interact\n" +
+                "<b>1 / 2 / 3</b>  Quick fridge pick        <b>ESC</b>  Resume";
         }
 
         private void RefreshHud()

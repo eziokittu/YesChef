@@ -13,10 +13,10 @@ namespace YesChef
         public PlayerController player;
 
         [Header("Perspective zoom")]
-        [Range(20f, 80f)] public float movingFieldOfView = 48f;
-        [Range(20f, 80f)] public float idleFieldOfView = 36f;
-        [Min(0f)] public float idleDelay = 1.25f;
-        [Min(0.05f)] public float zoomSmoothTime = 0.8f;
+        [Range(20f, 80f)] public float movingFieldOfView = 52f;
+        [Range(20f, 80f)] public float idleFieldOfView = 42f;
+        [Min(0f)] public float idleDelay = 3f;
+        [Min(0.05f)] public float zoomSmoothTime = 1.8f;
 
         private float idleSeconds;
         private float zoomVelocity;

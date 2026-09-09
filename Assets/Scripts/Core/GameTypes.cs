@@ -23,6 +23,7 @@ namespace YesChef
         Instructions,
         Playing,
         Paused,
+        ConfirmingQuit,
         Results
     }
 

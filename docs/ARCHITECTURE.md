@@ -9,13 +9,13 @@ This project is deliberately split into small scripts with one clear job each. T
 ## Main runtime flow
 
 1. `GameManager` starts on the instruction screen with time paused.
-2. **Start Cooking** resets the chef, stations, score, timer, and all four windows.
+2. **Start Cooking** resets the chef, stations, score, timer, and customer schedule. One customer starts immediately; the other tables fill at staggered random intervals.
 3. `PlayerController` reads movement and interaction input.
 4. `PlayerInventory` enforces the one-held-item rule.
 5. The refrigerator creates raw ingredients through `IngredientFactory`.
 6. The chopping table prepares vegetables in 2 seconds; either of two separate stove tables cooks one meat in 6 seconds; cheese is already delivery-ready.
 7. A customer window accepts only a prepared ingredient that occurs in its remaining list.
-8. Completing an order awards ingredient points minus `floor(seconds open)`, then that window waits 5 seconds before generating another order.
+8. Completing an order awards ingredient points minus `floor(seconds open)`, then that window waits a short random interval before its next customer walks in.
 9. When the match timer reaches zero, `GameManager` saves a new high score with `PlayerPrefs` and displays the result screen.
 
 ## Script responsibilities
@@ -27,6 +27,7 @@ This project is deliberately split into small scripts with one clear job each. T
 | `OrderTicket` | Pure runtime order data: required items, remaining items, age, and score |
 | `OrderGenerator` | Exact 50/50 choice of 2 or 3 slots and independent random ingredients |
 | `PlayerController` | Movement, upright visual rotation, nearest interaction, and keyboard commands |
+| `CharacterIdleMotion` | Small breathing/bobbing motion on a mesh child without changing movement-facing rotation |
 | `PlayerInventory` | The one-item hand and transfer methods |
 | `IngredientFactory` | Creates an ingredient and chooses the correct low-poly model |
 | `IngredientItem` | Ingredient type/state and visual switch from raw to prepared |
@@ -34,6 +35,9 @@ This project is deliberately split into small scripts with one clear job each. T
 | `CustomerWindow` | Customer arrival/departure, order delivery, serving card, timed dialogue and score feedback |
 | `CustomerAvatar` | Chooses from 50 names and randomizes skin, clothes and hairstyle |
 | `FridgeMenuController` | Opens the scrollable screen catalogue and routes button choices to the refrigerator |
+| `RefrigeratorAnimator` | Smooth Blender-hinge door animation and synchronized interior-light fade |
+| `WorldLabelFader` | Softens station labels near the chef and hides them while a station surface is occupied |
+| `ExternalLinkButton` | Opens the Glitchbong contact page and public source URL from the credits UI |
 | `AdaptiveCinemachineCamera` | Smooth Cinemachine follow lens: wide while moving, closer after an idle delay |
 | `WildlifeMover` | Reusable ambient movement, including delayed rare-snake appearances |
 | `Billboard` | Rotates world-space TMP cards toward the active Cinemachine-driven camera |
@@ -55,14 +59,16 @@ The most important design decision is separating definitions, runtime state, and
 
 The stations use the same pattern: validate the held item, transfer ownership from the inventory to a station anchor, advance a timer, change preparation state, and allow collection. Two separate `StoveStation` instances make the cooking positions visually and logically independent.
 
-The real Camera contains a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. `AdaptiveCinemachineCamera` only changes the perspective field of view, keeping camera responsibilities separate from movement.
+The real Camera contains a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. `AdaptiveCinemachineCamera` waits for three idle seconds before slowly changing the perspective field of view, keeping camera responsibilities separate from movement.
+
+The chef and customer hierarchy deliberately separates facing from model-axis correction. Movement rotates a Unity Y-up parent while the Blender mesh keeps its import correction on a child. `CharacterIdleMotion` also runs on that child, so neither movement nor animation can make a character fall onto its side.
 
 ## Editing common rules
 
 - Match length: `GameManager.matchSeconds`
 - Vegetable time: `ChoppingTableStation.preparationSeconds`
 - Meat time: each `StoveStation.cookingSeconds`
-- Order respawn: `CustomerWindow.respawnSeconds`
+- Customer return interval: `CustomerWindow.respawnMinimum` and `respawnMaximum`
 - Ingredient points: `IngredientRules.Score` in `GameTypes.cs`
 - Player speed/range: `PlayerController.moveSpeed` and `interactionRadius`
 

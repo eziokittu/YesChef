@@ -14,6 +14,7 @@ namespace YesChef
         public Transform itemAnchor;
         public TMP_Text statusText;
         public Image progressFill;
+        public WorldLabelFader labelFader;
         public ParticleSystem flameParticles;
         public Light cookingLight;
 
@@ -109,17 +110,20 @@ namespace YesChef
         {
             if (statusText != null)
             {
-                statusText.text = item == null ? "<b>STOVE</b>\nEmpty"
+                statusText.text = item == null ? $"<b>{gameObject.name.ToUpperInvariant()}</b>"
                     : item.State == PreparationState.Prepared ? "<b>STOVE</b>\n<color=#7DFF72>Cooked - ready!</color>"
                     : $"<b>STOVE</b>\nCooking  {secondsRemaining:0.0}s";
             }
 
             if (progressFill != null)
             {
+                progressFill.transform.parent.gameObject.SetActive(item != null && item.State == PreparationState.Raw);
                 progressFill.fillAmount = item == null ? 0f
                     : item.State == PreparationState.Prepared ? 1f
                     : 1f - secondsRemaining / cookingSeconds;
             }
+
+            labelFader?.SetSuppressed(item != null);
         }
     }
 }

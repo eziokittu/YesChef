@@ -6,6 +6,8 @@ namespace YesChef
     {
         public IngredientFactory factory;
         public FridgeMenuController menu;
+        public RefrigeratorAnimator animator;
+        public WorldLabelFader labelFader;
 
         public string GetPrompt(PlayerController player) => player.Inventory.HasItem
             ? "Hands full - use another station or the trash"
@@ -20,6 +22,12 @@ namespace YesChef
         {
             if (player.Inventory.HasItem) return false;
             return player.Inventory.TryTake(factory.Create(type, PreparationState.Raw, player.Inventory.handAnchor));
+        }
+
+        public void SetOpen(bool value)
+        {
+            animator?.SetOpen(value);
+            labelFader?.SetSuppressed(value);
         }
     }
 }

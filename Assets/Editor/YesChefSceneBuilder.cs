@@ -32,6 +32,7 @@ namespace YesChef.Editor
         public static void BuildPlayableKitchen()
         {
             EnsureTextMeshProResources();
+            ConfigureBrandTexture();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var models = LoadModels();
 
@@ -77,16 +78,21 @@ namespace YesChef.Editor
             manager.controlsStrip = ui.controlsStrip;
             manager.instructionsPanel = ui.instructions;
             manager.pausePanel = ui.pause;
+            manager.quitConfirmationPanel = ui.quitConfirmation;
             manager.resultsPanel = ui.results;
             manager.resultScoreText = ui.resultScore;
             manager.newHighScoreText = ui.newHighScore;
+            manager.pauseDetailsText = ui.pauseDetails;
 
             refrigerator.menu = ui.fridgeMenu;
             UnityEventTools.AddPersistentListener(ui.startButton.onClick, manager.BeginGame);
             UnityEventTools.AddPersistentListener(ui.pauseButton.onClick, manager.TogglePause);
             UnityEventTools.AddPersistentListener(ui.resumeButton.onClick, manager.TogglePause);
             UnityEventTools.AddPersistentListener(ui.restartButton.onClick, manager.BeginGame);
-            UnityEventTools.AddPersistentListener(ui.quitButton.onClick, manager.QuitGame);
+            UnityEventTools.AddPersistentListener(ui.quitButton.onClick, manager.RequestQuit);
+            UnityEventTools.AddPersistentListener(ui.pauseQuitButton.onClick, manager.RequestQuit);
+            UnityEventTools.AddPersistentListener(ui.cancelQuitButton.onClick, manager.CancelQuit);
+            UnityEventTools.AddPersistentListener(ui.confirmQuitButton.onClick, manager.QuitGame);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -108,6 +114,18 @@ namespace YesChef.Editor
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
             if (defaultFont == null) throw new MissingReferenceException("TMP essential resources could not be imported.");
+        }
+
+        private static void ConfigureBrandTexture()
+        {
+            const string path = "Assets/UI/Brand/GlitchbongLogo.png";
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) throw new FileNotFoundException($"Brand logo is missing: {path}");
+            if (importer.textureType == TextureImporterType.Sprite) return;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
         }
 
         private static Dictionary<string, GameObject> LoadModels()
@@ -267,11 +285,15 @@ namespace YesChef.Editor
 
             var inventory = root.AddComponent<PlayerInventory>();
             var player = root.AddComponent<PlayerController>();
-            var visual = AddModel(model, "Chef Visual", Vector3.zero, Quaternion.Euler(0, 180, 0), Vector3.one * 0.86f, root.transform);
-            player.visualRoot = visual.transform;
+            var facingRoot = new GameObject("Chef Facing Root").transform;
+            facingRoot.SetParent(root.transform, false);
+            var visual = AddModel(model, "Chef Visual", Vector3.zero, Quaternion.identity, Vector3.one * 0.86f, facingRoot);
+            var idle = visual.AddComponent<CharacterIdleMotion>();
+            idle.player = player;
+            player.visualRoot = facingRoot;
 
             var hand = new GameObject("Hand Anchor").transform;
-            hand.SetParent(visual.transform, false);
+            hand.SetParent(facingRoot, false);
             hand.localPosition = new Vector3(0, 1.42f, 0.62f);
             inventory.handAnchor = hand;
             return player;
@@ -280,10 +302,22 @@ namespace YesChef.Editor
         private static RefrigeratorStation CreateRefrigerator(GameObject model, IngredientFactory factory)
         {
             var root = CreateStationRoot("Refrigerator Station", new Vector3(4.85f, 0, 3.45f), new Vector3(1.9f, 2.9f, 1.5f));
-            AddModel(model, "Refrigerator Visual", Vector3.zero, Quaternion.Euler(0, 180, 0), Vector3.one, root.transform);
+            var visual = AddModel(model, "Refrigerator Visual", Vector3.zero, Quaternion.Euler(0, 180, 0), Vector3.one, root.transform);
             var station = root.AddComponent<RefrigeratorStation>();
             station.factory = factory;
-            CreateWorldText(root.transform, "Fridge Label", new Vector3(0, 3.15f, 0), "<b>FRIDGE</b>\nE: Browse   1/2/3: Quick pick", 38, new Vector2(720, 150));
+            station.labelFader = CreateStationLabel(root.transform, "Fridge Label", new Vector3(0, 2.82f, 0), "FRIDGE", 27, new Vector2(250, 72));
+            var animator = root.AddComponent<RefrigeratorAnimator>();
+            animator.doorHinge = FindChild(visual.transform, "MainDoorHinge");
+            var lightObject = new GameObject("Refrigerator Interior Light");
+            lightObject.transform.SetParent(root.transform, false);
+            lightObject.transform.localPosition = new Vector3(0, 1.25f, -0.9f);
+            var interiorLight = lightObject.AddComponent<Light>();
+            interiorLight.type = LightType.Point;
+            interiorLight.color = new Color(0.78f, 0.90f, 1f);
+            interiorLight.range = 3.2f;
+            interiorLight.intensity = 0f;
+            animator.interiorLight = interiorLight;
+            station.animator = animator;
             return station;
         }
 
@@ -294,7 +328,8 @@ namespace YesChef.Editor
             var anchor = CreatePoint(root.transform, "Ingredient Anchor", new Vector3(1.6f, 1.28f, 2.45f));
             var station = root.AddComponent<ChoppingTableStation>();
             station.itemAnchor = anchor;
-            station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 2.3f, 0), "<b>CHOPPING TABLE</b>\nEmpty", 38, new Vector2(700, 160));
+            station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 1.62f, 0), "CHOPPING TABLE", 27, new Vector2(330, 76), new Color(0.03f, 0.04f, 0.05f, 0.52f));
+            station.labelFader = ConfigureStationLabel(station.statusText);
             station.progressFill = CreateWorldProgressBar(root.transform, "Chopping Progress", new Vector3(0, 1.98f, 0), 650);
             return station;
         }
@@ -308,7 +343,8 @@ namespace YesChef.Editor
 
             var station = root.AddComponent<StoveStation>();
             station.itemAnchor = anchor;
-            station.statusText = CreateWorldText(root.transform, name + " Status", new Vector3(0, 2.72f, 0), $"<b>{name.ToUpperInvariant()}</b>\nEmpty", 38, new Vector2(620, 150));
+            station.statusText = CreateWorldText(root.transform, name + " Status", new Vector3(0, 1.92f, 0), name.ToUpperInvariant(), 27, new Vector2(230, 72), new Color(0.03f, 0.04f, 0.05f, 0.52f));
+            station.labelFader = ConfigureStationLabel(station.statusText);
             station.progressFill = CreateWorldProgressBar(root.transform, name + " Progress", new Vector3(0, 2.42f, 0), 570);
             CreateStoveEffects(root.transform, new Vector3(0, 1.58f, 0), station);
             return station;
@@ -354,7 +390,7 @@ namespace YesChef.Editor
         {
             var root = CreateStationRoot("Trash Station", new Vector3(4.9f, 0, -3.6f), new Vector3(1.5f, 1.5f, 1.5f));
             AddModel(model, "Trash Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            CreateWorldText(root.transform, "Trash Label", new Vector3(0, 1.82f, 0), "<b>TRASH</b>\nDiscard any item", 36, new Vector2(460, 120));
+            CreateStationLabel(root.transform, "Trash Label", new Vector3(0, 1.44f, 0), "TRASH", 26, new Vector2(210, 70));
             return root.AddComponent<TrashStation>();
         }
 
@@ -371,7 +407,8 @@ namespace YesChef.Editor
                 var customerRoot = new GameObject("Customer").transform;
                 customerRoot.SetParent(root.transform);
                 customerRoot.position = new Vector3(-6.75f, 0, z);
-                AddModel(models["Customer"], "Customer Visual", Vector3.zero, Quaternion.Euler(0, 90, 0), Vector3.one * 0.85f, customerRoot);
+                var customerVisual = AddModel(models["Customer"], "Customer Visual", Vector3.zero, Quaternion.identity, Vector3.one * 0.85f, customerRoot);
+                customerVisual.AddComponent<CharacterIdleMotion>();
                 var avatar = customerRoot.gameObject.AddComponent<CustomerAvatar>();
 
                 var spawnZ = index % 2 == 0 ? 12f : -12f;
@@ -385,7 +422,7 @@ namespace YesChef.Editor
                 window.exitPoint = CreatePoint(root.transform, "Exit Point", new Vector3(-9.2f, 0, exitZ));
                 window.orderText = CreateWorldText(root.transform, "Table Order Card", new Vector3(0.3f, 2.15f, 0), "ORDER", 40, new Vector2(720, 165));
                 window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(0.3f, 3.05f, 0), string.Empty, 52, new Vector2(420, 100));
-                window.dialogueText = CreateCloudText(root.transform, "Customer Dialogue", new Vector3(0.25f, 3.05f, 0), "Welcome!", 34, new Vector2(540, 180));
+                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.3f, 0), "Welcome!", 38, new Vector2(520, 180));
                 window.dialogueBubble = window.dialogueText.transform.parent.gameObject;
                 result.Add(window);
             }
@@ -398,7 +435,7 @@ namespace YesChef.Editor
             cameraObject.tag = "MainCamera";
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = false;
-            camera.fieldOfView = 48f;
+            camera.fieldOfView = 52f;
             camera.nearClipPlane = 0.15f;
             camera.farClipPlane = 120f;
             camera.clearFlags = CameraClearFlags.SolidColor;
@@ -409,13 +446,13 @@ namespace YesChef.Editor
             var virtualCamera = virtualCameraObject.AddComponent<CinemachineVirtualCamera>();
             virtualCamera.Follow = player.transform;
             virtualCamera.LookAt = null;
-            virtualCamera.m_Lens.FieldOfView = 48f;
+            virtualCamera.m_Lens.FieldOfView = 52f;
             virtualCamera.m_Lens.NearClipPlane = 0.15f;
             virtualCamera.m_Lens.FarClipPlane = 120f;
-            virtualCamera.transform.position = player.transform.position + new Vector3(0, 11.5f, -3.8f);
-            virtualCamera.transform.rotation = Quaternion.Euler(72f, 0f, 0f);
+            virtualCamera.transform.position = player.transform.position + new Vector3(0, 12.8f, -6.0f);
+            virtualCamera.transform.rotation = Quaternion.Euler(65f, 0f, 0f);
             var framing = virtualCamera.AddCinemachineComponent<CinemachineFramingTransposer>();
-            framing.m_CameraDistance = 12f;
+            framing.m_CameraDistance = 14.5f;
             framing.m_TrackedObjectOffset = new Vector3(0, 0.9f, 0);
             framing.m_XDamping = 0.45f;
             framing.m_YDamping = 0.45f;
@@ -426,13 +463,18 @@ namespace YesChef.Editor
             var controller = virtualCameraObject.AddComponent<AdaptiveCinemachineCamera>();
             controller.virtualCamera = virtualCamera;
             controller.player = player;
+            controller.movingFieldOfView = 52f;
+            controller.idleFieldOfView = 42f;
+            controller.idleDelay = 3f;
+            controller.zoomSmoothTime = 1.8f;
             return (virtualCamera, controller);
         }
 
         private static (TMP_Text timer, TMP_Text score, TMP_Text highScore, TMP_Text heldItem, Image heldColor,
-            TMP_Text prompt, GameObject controlsStrip, GameObject instructions, GameObject pause, GameObject results,
-            TMP_Text resultScore, TMP_Text newHighScore, Button startButton, Button pauseButton, Button resumeButton,
-            Button restartButton, Button quitButton, FridgeMenuController fridgeMenu) CreateScreenUi(
+            TMP_Text prompt, GameObject controlsStrip, GameObject instructions, GameObject pause, GameObject quitConfirmation, GameObject results,
+            TMP_Text resultScore, TMP_Text newHighScore, TMP_Text pauseDetails, Button startButton, Button pauseButton, Button resumeButton,
+            Button restartButton, Button quitButton, Button pauseQuitButton, Button cancelQuitButton, Button confirmQuitButton,
+            FridgeMenuController fridgeMenu) CreateScreenUi(
                 RefrigeratorStation refrigerator, PlayerController player)
         {
             var canvasObject = new GameObject("Game UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -458,8 +500,9 @@ namespace YesChef.Editor
             var timer = CreateScreenText(timerPanel.transform, "Timer", "03:00", 52, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(250, 75));
 
-            var pauseButton = CreateButton(canvas.transform, "Pause Button", "PAUSE", new Vector2(1, 1), new Vector2(-180, -32), new Vector2(150, 58));
-            var quitButton = CreateButton(canvas.transform, "Quit Button", "QUIT", new Vector2(1, 1), new Vector2(-24, -32), new Vector2(130, 58));
+            var pauseButton = CreateButton(canvas.transform, "Pause Button", string.Empty, new Vector2(1, 1), new Vector2(-106, -28), new Vector2(64, 64));
+            CreatePauseGlyph(pauseButton.transform);
+            var quitButton = CreateButton(canvas.transform, "Quit Button", "X", new Vector2(1, 1), new Vector2(-28, -28), new Vector2(64, 64));
 
             var controlsStrip = CreateAnchoredPanel(canvas.transform, "Controls Strip", new Vector2(0.5f, 0), new Vector2(0, 18), new Vector2(1250, 92), new Vector2(0.5f, 0));
             CreateScreenText(controlsStrip.transform, "Controls", "<b>WASD / ARROWS</b> Move     <b>E</b> Interact     <b>1 / 2 / 3</b> Quick fridge pick     <b>ESC</b> Pause",
@@ -483,10 +526,25 @@ namespace YesChef.Editor
                 28, TextAlignmentOptions.Left, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -20), new Vector2(760, 350), Cream);
             var startButton = CreateButton(instructions.transform, "Start Button", "START COOKING", new Vector2(0.5f, 0), new Vector2(0, 48), new Vector2(330, 76));
 
-            var pause = CreatePanel(canvas.transform, "Pause Panel", new Vector2(540, 350));
-            CreateScreenText(pause.transform, "Paused", "PAUSED", 66, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -55), new Vector2(460, 100), Tomato);
-            var resumeButton = CreateButton(pause.transform, "Resume Button", "RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -25), new Vector2(270, 72));
+            var pause = CreateScreenOverlay(canvas.transform, "Pause Overlay");
+            var pauseCard = CreatePanel(pause.transform, "Pause Card", new Vector2(760, 690));
+            CreateScreenText(pauseCard.transform, "Paused", "PAUSED", 60, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -38), new Vector2(650, 88), Tomato);
+            var pauseDetails = CreateScreenText(pauseCard.transform, "Pause Details", "CURRENT SCORE  0      BEST  0", 25, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(650, 150), Cream);
+            var resumeButton = CreateButton(pauseCard.transform, "Resume Button", ">  RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -18), new Vector2(280, 68));
+            var pauseQuitButton = CreateButton(pauseCard.transform, "Pause Quit Button", "QUIT GAME", new Vector2(0.5f, 0.5f), new Vector2(0, -102), new Vector2(280, 60));
+            CreateBrandCredits(pauseCard.transform, new Vector2(0, 82));
+
+            var quitConfirmation = CreateScreenOverlay(canvas.transform, "Quit Confirmation Overlay");
+            var quitCard = CreatePanel(quitConfirmation.transform, "Quit Confirmation Card", new Vector2(720, 650));
+            CreateScreenText(quitCard.transform, "Quit Title", "ONE MORE ORDER?", 54, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -42), new Vector2(620, 78), Tomato);
+            CreateScreenText(quitCard.transform, "Quit Message", "The kitchen is still warm and your customers are hungry.\nStay for one more delicious service?", 28,
+                TextAlignmentOptions.Center, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(610, 105), Cream);
+            var cancelQuitButton = CreateButton(quitCard.transform, "Keep Cooking Button", ">  KEEP COOKING", new Vector2(0.5f, 0.5f), new Vector2(-155, -40), new Vector2(280, 68));
+            var confirmQuitButton = CreateButton(quitCard.transform, "Confirm Quit Button", "YES, QUIT", new Vector2(0.5f, 0.5f), new Vector2(155, -40), new Vector2(230, 68));
+            CreateBrandCredits(quitCard.transform, new Vector2(0, 78));
 
             var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(620, 480));
             CreateScreenText(results.transform, "Game Over", "SERVICE OVER!", 60, TextAlignmentOptions.Center,
@@ -499,9 +557,11 @@ namespace YesChef.Editor
 
             controlsStrip.SetActive(false);
             pause.SetActive(false);
+            quitConfirmation.SetActive(false);
             results.SetActive(false);
-            return (timer, score, highScore, heldItem, heldColor, prompt, controlsStrip, instructions, pause, results,
-                resultScore, newHighScore, startButton, pauseButton, resumeButton, restartButton, quitButton, fridgeMenu);
+            return (timer, score, highScore, heldItem, heldColor, prompt, controlsStrip, instructions, pause, quitConfirmation, results,
+                resultScore, newHighScore, pauseDetails, startButton, pauseButton, resumeButton, restartButton, quitButton,
+                pauseQuitButton, cancelQuitButton, confirmQuitButton, fridgeMenu);
         }
 
         private static FridgeMenuController CreateFridgeMenu(Transform canvas, RefrigeratorStation refrigerator, PlayerController player)
@@ -597,27 +657,63 @@ namespace YesChef.Editor
 
         private static TMP_Text CreateCloudText(Transform parent, string name, Vector3 localPosition, string value, float fontSize, Vector2 size)
         {
-            var text = CreateWorldText(parent, name, localPosition, value, fontSize, size, Color.white, Ink);
-            var canvas = text.transform.parent;
+            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard));
+            canvasObject.transform.SetParent(parent, false);
+            canvasObject.transform.localPosition = localPosition;
+            canvasObject.transform.localScale = Vector3.one * 0.0052f;
+            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvasObject.GetComponent<Canvas>().sortingOrder = 14;
+            canvasObject.GetComponent<RectTransform>().sizeDelta = size;
             var sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
             foreach (var data in new[]
                      {
-                         (new Vector2(-size.x * 0.42f, -size.y * 0.35f), 58f),
-                         (new Vector2(-size.x * 0.28f, -size.y * 0.50f), 38f),
-                         (new Vector2(-size.x * 0.18f, -size.y * 0.62f), 24f)
+                         (new Vector2(-170, 4), new Vector2(205, 150)),
+                         (new Vector2(-65, 24), new Vector2(230, 170)),
+                         (new Vector2(55, 22), new Vector2(230, 170)),
+                         (new Vector2(170, 0), new Vector2(205, 150)),
+                         (new Vector2(0, -22), new Vector2(360, 145)),
+                         (new Vector2(180, -102), new Vector2(46, 46)),
+                         (new Vector2(205, -132), new Vector2(25, 25))
                      })
             {
                 var puff = new GameObject("Cloud Puff", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                puff.transform.SetParent(canvas, false);
-                puff.transform.SetSiblingIndex(0);
+                puff.transform.SetParent(canvasObject.transform, false);
                 var rect = puff.GetComponent<RectTransform>();
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.anchoredPosition = data.Item1;
-                rect.sizeDelta = Vector2.one * data.Item2;
+                rect.sizeDelta = data.Item2;
                 puff.GetComponent<Image>().sprite = sprite;
-                puff.GetComponent<Image>().color = Color.white;
+                puff.GetComponent<Image>().color = new Color(1f, 0.98f, 0.91f, 0.96f);
             }
+
+            var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(canvasObject.transform, false);
+            var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = defaultFont;
+            text.text = value;
+            text.fontSize = fontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Ink;
+            text.richText = true;
+            text.enableWordWrapping = true;
+            StretchToParent(text.rectTransform);
+            text.rectTransform.offsetMin = new Vector2(38, 25);
+            text.rectTransform.offsetMax = new Vector2(-38, -20);
             return text;
+        }
+
+        private static WorldLabelFader CreateStationLabel(Transform parent, string name, Vector3 localPosition,
+            string value, float fontSize, Vector2 size)
+        {
+            return ConfigureStationLabel(CreateWorldText(parent, name, localPosition, value, fontSize, size,
+                new Color(0.03f, 0.04f, 0.05f, 0.52f)));
+        }
+
+        private static WorldLabelFader ConfigureStationLabel(TMP_Text text)
+        {
+            var canvasObject = text.transform.parent.gameObject;
+            canvasObject.AddComponent<CanvasGroup>();
+            return canvasObject.AddComponent<WorldLabelFader>();
         }
 
         private static TMP_Text CreateWorldText(Transform parent, string name, Vector3 localPosition, string value, float fontSize,
@@ -712,7 +808,7 @@ namespace YesChef.Editor
         }
 
         private static GameObject AddModel(GameObject prefab, string name, Vector3 position, Quaternion rotation, Vector3 scale,
-            Transform parent, bool worldSpace = false)
+            Transform parent, bool worldSpace = false, bool applyBlenderAxisCorrection = true)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             instance.name = name;
@@ -720,16 +816,21 @@ namespace YesChef.Editor
             if (worldSpace)
             {
                 instance.transform.position = position;
-                instance.transform.rotation = rotation * Quaternion.Euler(-90f, 0f, 0f);
+                instance.transform.rotation = applyBlenderAxisCorrection ? rotation * Quaternion.Euler(-90f, 0f, 0f) : rotation;
             }
             else
             {
                 instance.transform.localPosition = position;
-                instance.transform.localRotation = rotation * Quaternion.Euler(-90f, 0f, 0f);
+                instance.transform.localRotation = applyBlenderAxisCorrection ? rotation * Quaternion.Euler(-90f, 0f, 0f) : rotation;
             }
             instance.transform.localScale = scale;
             foreach (var collider in instance.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(collider);
             return instance;
+        }
+
+        private static Transform FindChild(Transform parent, string childName)
+        {
+            return parent.GetComponentsInChildren<Transform>(true).FirstOrDefault(child => child.name == childName);
         }
 
         private static void CreateVisualBox(string name, Vector3 position, Vector3 size, Material material, Transform parent)
@@ -780,6 +881,35 @@ namespace YesChef.Editor
         private static GameObject CreatePanel(Transform parent, string name, Vector2 size)
         {
             return CreateAnchoredPanel(parent, name, new Vector2(0.5f, 0.5f), Vector2.zero, size, new Vector2(0.5f, 0.5f));
+        }
+
+        private static GameObject CreateScreenOverlay(Transform parent, string name)
+        {
+            var overlay = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            overlay.transform.SetParent(parent, false);
+            StretchToParent(overlay.GetComponent<RectTransform>());
+            overlay.GetComponent<Image>().color = new Color(0.015f, 0.02f, 0.025f, 0.72f);
+            return overlay;
+        }
+
+        private static void CreateBrandCredits(Transform parent, Vector2 bottomPosition)
+        {
+            var logoObject = new GameObject("Glitchbong Logo", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            logoObject.transform.SetParent(parent, false);
+            var logoRect = logoObject.GetComponent<RectTransform>();
+            logoRect.anchorMin = logoRect.anchorMax = new Vector2(0.5f, 0);
+            logoRect.pivot = new Vector2(0.5f, 0);
+            logoRect.anchoredPosition = bottomPosition + new Vector2(-245, 0);
+            logoRect.sizeDelta = new Vector2(78, 78);
+            logoObject.GetComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GlitchbongLogo.png");
+
+            var links = parent.gameObject.AddComponent<ExternalLinkButton>();
+            var contact = CreateButton(parent, "Glitchbong Contact Link", "DEVELOPED BY GLITCHBONG  ->", new Vector2(0.5f, 0), bottomPosition + new Vector2(35, 40), new Vector2(430, 48));
+            var repository = CreateButton(parent, "GitHub Source Link", "GH  CHECK GITHUB SOURCE CODE  ->", new Vector2(0.5f, 0), bottomPosition + new Vector2(35, -18), new Vector2(430, 48));
+            contact.GetComponent<Image>().color = new Color(0.14f, 0.48f, 0.18f, 0.94f);
+            repository.GetComponent<Image>().color = new Color(0.13f, 0.15f, 0.18f, 0.96f);
+            UnityEventTools.AddPersistentListener(contact.onClick, links.OpenGlitchbongContact);
+            UnityEventTools.AddPersistentListener(repository.onClick, links.OpenRepository);
         }
 
         private static GameObject CreateAnchoredPanel(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, Vector2 pivot)
@@ -842,6 +972,20 @@ namespace YesChef.Editor
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size, Color.white);
             text.raycastTarget = false;
             return button;
+        }
+
+        private static void CreatePauseGlyph(Transform parent)
+        {
+            foreach (var x in new[] { -8f, 8f })
+            {
+                var bar = new GameObject("Pause Bar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                bar.transform.SetParent(parent, false);
+                var rect = bar.GetComponent<RectTransform>();
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = new Vector2(x, 0);
+                rect.sizeDelta = new Vector2(7, 25);
+                bar.GetComponent<Image>().color = Color.white;
+            }
         }
 
         private static void StretchToParent(RectTransform rect)

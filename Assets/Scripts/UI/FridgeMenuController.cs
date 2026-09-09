@@ -28,11 +28,13 @@ namespace YesChef
         {
             player = interactingPlayer;
             if (panel != null) panel.SetActive(true);
+            refrigerator?.SetOpen(true);
         }
 
         public void Close()
         {
             if (panel != null) panel.SetActive(false);
+            refrigerator?.SetOpen(false);
         }
 
         public void Toggle(PlayerController interactingPlayer)

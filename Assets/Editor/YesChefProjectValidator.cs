@@ -57,6 +57,8 @@ namespace YesChef.Editor
             Require(manager.windows != null && manager.windows.Length == 4, "Exactly four customer windows are required.");
             Require(manager.windows.All(window => window.orderText != null && window.dialogueText != null && window.scorePopupText != null), "A customer table UI reference is missing.");
             Require(manager.windows.All(window => window.avatar != null && window.customerRoot != null && window.spawnPoint != null && window.servicePoint != null), "Customer models or walking routes are incomplete.");
+            Require(UnityEngine.Object.FindObjectsByType<CharacterIdleMotion>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 5,
+                "The chef and all four customers need subtle idle motion.");
             Require(manager.choppingTable != null,
                 "Chopping table reference is missing from GameManager.");
             Require(manager.choppingTable.statusText != null,
@@ -71,18 +73,28 @@ namespace YesChef.Editor
                 "Every stove flame needs a valid particle material.");
             Require(manager.timerText != null && manager.scoreText != null && manager.highScoreText != null && manager.heldItemText != null && manager.heldItemColor != null, "HUD references are incomplete.");
             Require(manager.controlsStrip != null && manager.fridgeMenu != null, "Controls strip or fridge catalogue is missing.");
-            Require(manager.instructionsPanel != null && manager.pausePanel != null && manager.resultsPanel != null, "Game-state panels are incomplete.");
+            Require(manager.fridgeMenu.refrigerator.animator != null && manager.fridgeMenu.refrigerator.animator.doorHinge != null &&
+                    manager.fridgeMenu.refrigerator.animator.interiorLight != null,
+                "The refrigerator needs an authored door hinge and fading interior light.");
+            Require(manager.instructionsPanel != null && manager.pausePanel != null && manager.quitConfirmationPanel != null &&
+                    manager.resultsPanel != null && manager.pauseDetailsText != null, "Game-state panels are incomplete.");
             Require(UnityEngine.Object.FindFirstObjectByType<CinemachineBrain>() != null, "The Main Camera needs a Cinemachine Brain.");
             var virtualCamera = UnityEngine.Object.FindFirstObjectByType<CinemachineVirtualCamera>();
             Require(virtualCamera != null && virtualCamera.Follow == manager.player.transform && Camera.main != null && !Camera.main.orthographic,
                 "A perspective Cinemachine camera must follow the player.");
             Require(manager.adaptiveCamera != null, "The idle/movement Cinemachine zoom controller is missing.");
+            Require(manager.adaptiveCamera.idleDelay >= 3f && manager.adaptiveCamera.zoomSmoothTime >= 1.5f,
+                "The adaptive camera must wait three seconds and zoom gradually.");
+            Require(UnityEngine.Object.FindObjectsByType<WorldLabelFader>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 5,
+                "Kitchen station labels need proximity fading.");
             Require(UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None).Count(light => light.type == LightType.Point) >= 8,
                 "Room point lights and stove lights are required.");
             Require(UnityEngine.Object.FindFirstObjectByType<ScrollRect>(FindObjectsInactive.Include) != null,
                 "The fridge ingredient list must use a ScrollRect.");
             Require(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset") != null,
                 "TextMesh Pro essential resources are missing.");
+            Require(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GlitchbongLogo.png") != null,
+                "The Glitchbong credit logo is missing or is not imported as a sprite.");
             Require(UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None).All(text => text.font != null),
                 "Every TextMesh Pro label must have an assigned font asset.");
             Require(OrderScoring.Calculate(new[] { IngredientType.Cheese, IngredientType.Meat }, 14.99f) == 26,

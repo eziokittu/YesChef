@@ -12,7 +12,7 @@ A small 3D, top-down kitchen game built for the Tentworks Interactive developer 
 
 ## Core game loop
 
-The player has three minutes to complete as many of four active orders as possible. Ingredients come from the refrigerator and must be carried one at a time. Vegetables require two seconds at the chopping table, meat requires six seconds in one of two stove slots, and cheese can be delivered immediately. Completed orders respawn after five seconds.
+The player has three minutes to complete as many orders as possible across four serving tables. One customer begins at the counter and additional customers arrive gradually from the road. Ingredients come from the refrigerator and must be carried one at a time. Vegetables require two seconds at the chopping table, meat requires six seconds on either stove, and cheese can be delivered immediately.
 
 Order score is the sum of ingredient values minus `floor(seconds open)`:
 
@@ -31,8 +31,8 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 ## Implemented features
 
 - Perspective top-down 3D kitchen driven by Cinemachine with smooth player follow
-- Idle camera zoom-in and movement zoom-out while keeping the chef centred
-- Four simultaneous randomized orders with duplicate ingredients supported
+- Wider angled camera with slow zoom-in only after three idle seconds and movement zoom-out while keeping the chef centred
+- One starting customer plus staggered, randomized arrivals across four serving tables
 - 50/50 selection between two- and three-ingredient orders
 - All 36 ordered two- and three-ingredient recipe variations supported and validator-checked
 - One-item player inventory
@@ -40,13 +40,14 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Two physically separate stove tables with independent six-second cooking, flame particles and pulsing point lights
 - Direct cheese delivery and a trash station for all ingredient states
 - Order scoring using ingredient value minus floored seconds open, including negative scores
-- Five-second order respawn delay and fading score feedback
-- Three-minute game timer, instructions, pause, results, restart, quit, current score, and persistent high score
+- Short randomized customer return delay and fading score feedback
+- Animated openable refrigerator with stocked shelves and a fading cool interior light
+- Three-minute timer, instructions, translucent pause screen, quit confirmation, restart, current score, persistent high score, and linked credits
 - Persistent bottom control/guidance strip plus a scrollable, clickable refrigerator catalogue
 - Physical customers with randomized names, clothing, skin tones and hairstyles
-- Timed customer speech clouds that react to service speed, serving-table order cards and fading score popups
+- Timed rounded customer speech clouds above their heads, serving-table order cards and fading score popups
 - Outdoor road and walking customer routes, garden/flowers, tall windowed building, and marsh with lotus, frogs, fish and rare snakes
-- Polished TextMesh Pro HUD, held-item display, larger world-space labels and station progress bars
+- Polished TextMesh Pro HUD, held-item display, proximity-fading station labels and activity-only progress bars
 
 ## Understanding the code
 
@@ -91,7 +92,7 @@ Assets/
 3. Press Play and select **Start Cooking**.
 4. To regenerate the scene, use **Tools > Yes Chef > Build Playable Kitchen**.
 
-The editor validator is `Assets/Editor/YesChefProjectValidator.cs`. It checks scene references, all 13 model imports, four customer windows, TextMesh Pro font assignment, two stove slots, required UI, and the scoring examples.
+The editor validator is `Assets/Editor/YesChefProjectValidator.cs`. It checks scene references, all required model imports, four customer windows, character orientation and idle motion, camera timing, refrigerator animation, TextMesh Pro assignment, station UI, two stove slots, and the scoring examples.
 
 ## Submission notes
 

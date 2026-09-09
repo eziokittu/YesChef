@@ -12,23 +12,31 @@ namespace YesChef
             var arguments = Environment.GetCommandLineArgs();
             if (Array.IndexOf(arguments, "-yeschef-gameplay-capture") >= 0)
             {
-                StartCoroutine(CaptureAndQuit(true, false, false));
+                StartCoroutine(CaptureAndQuit(true, false, false, false, false));
             }
             else if (Array.IndexOf(arguments, "-yeschef-fridge-capture") >= 0)
             {
-                StartCoroutine(CaptureAndQuit(true, true, false));
+                StartCoroutine(CaptureAndQuit(true, true, false, false, false));
             }
             else if (Array.IndexOf(arguments, "-yeschef-stove-capture") >= 0)
             {
-                StartCoroutine(CaptureAndQuit(true, false, true));
+                StartCoroutine(CaptureAndQuit(true, false, true, false, false));
+            }
+            else if (Array.IndexOf(arguments, "-yeschef-pause-capture") >= 0)
+            {
+                StartCoroutine(CaptureAndQuit(true, false, false, true, false));
+            }
+            else if (Array.IndexOf(arguments, "-yeschef-quit-capture") >= 0)
+            {
+                StartCoroutine(CaptureAndQuit(true, false, false, false, true));
             }
             else if (Array.IndexOf(arguments, "-yeschef-capture") >= 0)
             {
-                StartCoroutine(CaptureAndQuit(false, false, false));
+                StartCoroutine(CaptureAndQuit(false, false, false, false, false));
             }
         }
 
-        private static IEnumerator CaptureAndQuit(bool beginGame, bool openFridge, bool lightStove)
+        private static IEnumerator CaptureAndQuit(bool beginGame, bool openFridge, bool lightStove, bool pauseMenu, bool quitMenu)
         {
             yield return null;
             if (beginGame) GameManager.Instance.BeginGame();
@@ -43,6 +51,8 @@ namespace YesChef
                 game.fridgeMenu.refrigerator.TryTake(game.player, IngredientType.Meat);
                 game.stoves[0].Interact(game.player);
             }
+            if (pauseMenu) GameManager.Instance.TogglePause();
+            if (quitMenu) GameManager.Instance.RequestQuit();
             yield return new WaitForSecondsRealtime(0.35f);
             if (beginGame)
             {
@@ -54,7 +64,9 @@ namespace YesChef
                 }
             }
             yield return new WaitForEndOfFrame();
-            var fileName = openFridge ? "YesChef_Fridge_Verification.png"
+            var fileName = pauseMenu ? "YesChef_Pause_Verification.png"
+                : quitMenu ? "YesChef_Quit_Verification.png"
+                : openFridge ? "YesChef_Fridge_Verification.png"
                 : lightStove ? "YesChef_Stove_Verification.png"
                 : beginGame ? "YesChef_Gameplay_Verification.png"
                 : "YesChef_Verification.png";
@@ -63,7 +75,9 @@ namespace YesChef
             yield return new WaitForSecondsRealtime(2f);
             if (beginGame)
             {
-                Debug.Log($"YES_CHEF_RUNTIME_IDLE_FOV: {GameManager.Instance.adaptiveCamera.virtualCamera.m_Lens.FieldOfView:0.00}");
+                Debug.Log($"YES_CHEF_RUNTIME_IDLE_FOV_BEFORE_DELAY: {GameManager.Instance.adaptiveCamera.virtualCamera.m_Lens.FieldOfView:0.00}");
+                yield return new WaitForSecondsRealtime(2f);
+                Debug.Log($"YES_CHEF_RUNTIME_IDLE_FOV_AFTER_DELAY: {GameManager.Instance.adaptiveCamera.virtualCamera.m_Lens.FieldOfView:0.00}");
             }
             Application.Quit(0);
         }

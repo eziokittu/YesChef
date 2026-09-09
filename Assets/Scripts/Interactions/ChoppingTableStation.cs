@@ -14,6 +14,7 @@ namespace YesChef
         public Transform itemAnchor;
         public TMP_Text statusText;
         public Image progressFill;
+        public WorldLabelFader labelFader;
 
         [Header("Rule")]
         [Min(0.1f)] public float preparationSeconds = 2f;
@@ -96,7 +97,7 @@ namespace YesChef
             if (statusText != null)
             {
                 statusText.text = item == null
-                    ? "<b>CHOPPING TABLE</b>\nEmpty"
+                    ? "<b>CHOPPING TABLE</b>"
                     : item.State == PreparationState.Prepared
                         ? "<b>CHOPPING TABLE</b>\n<color=#7DFF72>Chopped - ready!</color>"
                         : $"<b>CHOPPING TABLE</b>\nChopping  {secondsRemaining:0.0}s";
@@ -104,10 +105,13 @@ namespace YesChef
 
             if (progressFill != null)
             {
+                progressFill.transform.parent.gameObject.SetActive(item != null && item.State == PreparationState.Raw);
                 progressFill.fillAmount = item == null ? 0f
                     : item.State == PreparationState.Prepared ? 1f
                     : 1f - secondsRemaining / preparationSeconds;
             }
+
+            labelFader?.SetSuppressed(item != null);
         }
     }
 }
