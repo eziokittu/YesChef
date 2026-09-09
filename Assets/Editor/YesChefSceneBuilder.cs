@@ -64,6 +64,7 @@ namespace YesChef.Editor
             manager.timerText = ui.timer;
             manager.scoreText = ui.score;
             manager.highScoreText = ui.highScore;
+            manager.heldItemText = ui.heldItem;
             manager.interactionText = ui.prompt;
             manager.instructionsPanel = ui.instructions;
             manager.pausePanel = ui.pause;
@@ -222,6 +223,7 @@ namespace YesChef.Editor
             var station = root.AddComponent<ChoppingTableStation>();
             station.itemAnchor = anchor;
             station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 2.12f, 0), "<b>CHOPPING TABLE</b>\nEmpty", 30, new Vector2(650, 140));
+            station.progressFill = CreateWorldProgressBar(root.transform, "Chopping Progress", new Vector3(0, 1.83f, 0), 620);
             return station;
         }
 
@@ -239,6 +241,11 @@ namespace YesChef.Editor
             var station = root.AddComponent<StoveStation>();
             station.slotAnchors = anchors;
             station.statusText = CreateWorldText(root.transform, "Stove Status", new Vector3(0, 2.15f, 0), "<b>STOVE</b>\n1: Empty   2: Empty", 30, new Vector2(650, 140));
+            station.progressFills = new[]
+            {
+                CreateWorldProgressBar(root.transform, "Stove Slot 1 Progress", new Vector3(-0.72f, 1.86f, 0), 285),
+                CreateWorldProgressBar(root.transform, "Stove Slot 2 Progress", new Vector3(0.72f, 1.86f, 0), 285)
+            };
             return station;
         }
 
@@ -259,14 +266,14 @@ namespace YesChef.Editor
                 var root = CreateStationRoot($"Customer Window {i + 1}", new Vector3(-6.25f, 0, positions[i]), new Vector3(1.4f, 2.8f, 2.15f));
                 AddModel(model, "Window Visual", Vector3.zero, Quaternion.Euler(0, 90, 0), new Vector3(0.82f, 0.82f, 0.82f), root.transform);
                 var window = root.AddComponent<CustomerWindow>();
-                window.orderText = CreateWorldText(root.transform, "Order Display", new Vector3(1.05f, 2.85f, 0), "ORDER", 27, new Vector2(700, 145));
+                window.orderText = CreateWorldText(root.transform, "Order Display", new Vector3(1.05f, 2.85f, 0), "ORDER", 30, new Vector2(740, 155));
                 window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(1.05f, 3.55f, 0), string.Empty, 42, new Vector2(360, 90));
                 result.Add(window);
             }
             return result;
         }
 
-        private static (TMP_Text timer, TMP_Text score, TMP_Text highScore, TMP_Text prompt, GameObject instructions,
+        private static (TMP_Text timer, TMP_Text score, TMP_Text highScore, TMP_Text heldItem, TMP_Text prompt, GameObject instructions,
             GameObject pause, GameObject results, TMP_Text resultScore, TMP_Text newHighScore, Button startButton,
             Button pauseButton, Button resumeButton, Button restartButton, Button quitButton) CreateScreenUi()
         {
@@ -287,10 +294,18 @@ namespace YesChef.Editor
                 new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -24), new Vector2(350, 70));
             var highScore = CreateScreenText(canvas.transform, "High Score", "BEST  0", 28, TextAlignmentOptions.Left,
                 new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -86), new Vector2(350, 55));
+            var heldItem = CreateScreenText(canvas.transform, "Held Item", "HANDS  <color=#9AA3A8>EMPTY</color>", 27, TextAlignmentOptions.Left,
+                new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -137), new Vector2(520, 55));
             var timer = CreateScreenText(canvas.transform, "Timer", "03:00", 52, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -28), new Vector2(300, 80));
             var prompt = CreateScreenText(canvas.transform, "Interaction Prompt", string.Empty, 32, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 42), new Vector2(1100, 70));
+
+            AddTextBackdrop(score.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
+            AddTextBackdrop(highScore.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
+            AddTextBackdrop(heldItem.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
+            AddTextBackdrop(timer.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
+            AddTextBackdrop(prompt.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
 
             var pauseButton = CreateButton(canvas.transform, "Pause Button", "PAUSE", new Vector2(1, 1), new Vector2(-180, -42), new Vector2(150, 54));
             var quitButton = CreateButton(canvas.transform, "Quit Button", "QUIT", new Vector2(1, 1), new Vector2(-28, -42), new Vector2(120, 54));
@@ -321,8 +336,48 @@ namespace YesChef.Editor
 
             pause.SetActive(false);
             results.SetActive(false);
-            return (timer, score, highScore, prompt, instructions, pause, results, resultScore, newHighScore,
+            return (timer, score, highScore, heldItem, prompt, instructions, pause, results, resultScore, newHighScore,
                 startButton, pauseButton, resumeButton, restartButton, quitButton);
+        }
+
+        private static Image CreateWorldProgressBar(Transform parent, string name, Vector3 localPosition, float width)
+        {
+            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard));
+            canvasObject.transform.SetParent(parent, false);
+            canvasObject.transform.localPosition = localPosition;
+            canvasObject.transform.localScale = Vector3.one * 0.0045f;
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 6;
+            canvasObject.GetComponent<RectTransform>().sizeDelta = new Vector2(width, 30);
+
+            var background = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            background.transform.SetParent(canvasObject.transform, false);
+            StretchToParent(background.GetComponent<RectTransform>());
+            background.GetComponent<Image>().color = new Color(0.03f, 0.04f, 0.05f, 0.92f);
+
+            var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            fillObject.transform.SetParent(canvasObject.transform, false);
+            var fillRect = fillObject.GetComponent<RectTransform>();
+            StretchToParent(fillRect);
+            fillRect.offsetMin = new Vector2(4, 4);
+            fillRect.offsetMax = new Vector2(-4, -4);
+            var fill = fillObject.GetComponent<Image>();
+            fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            fill.color = new Color(0.35f, 0.9f, 0.42f, 1f);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = 0;
+            fill.fillAmount = 0f;
+            return fill;
+        }
+
+        private static void StretchToParent(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private static GameObject CreateStationRoot(string name, Vector3 position, Vector3 colliderSize)

@@ -19,6 +19,7 @@ namespace YesChef
         public TMP_Text timerText;
         public TMP_Text scoreText;
         public TMP_Text highScoreText;
+        public TMP_Text heldItemText;
         public TMP_Text interactionText;
 
         [Header("Panels")]
@@ -145,6 +146,13 @@ namespace YesChef
             timerText.text = $"{seconds / 60:00}:{seconds % 60:00}";
             scoreText.text = $"SCORE  {Score}";
             highScoreText.text = $"BEST  {HighScore}";
+            if (heldItemText != null)
+            {
+                var item = player != null ? player.Inventory.HeldItem : null;
+                heldItemText.text = item == null
+                    ? "HANDS  <color=#9AA3A8>EMPTY</color>"
+                    : $"HANDS  <color=#{ColorUtility.ToHtmlStringRGB(IngredientRules.Color(item.Type))}>{item.State.ToString().ToUpperInvariant()} {item.Type.ToString().ToUpperInvariant()}</color>";
+            }
         }
     }
 }

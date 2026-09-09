@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -7,25 +6,32 @@ namespace YesChef
 {
     public sealed class CustomerWindow : MonoBehaviour, IInteractable
     {
+        [Header("TextMesh Pro display")]
+        [Tooltip("Shows the current ingredients and how long this order has been open.")]
         public TMP_Text orderText;
-        public TMP_Text scorePopupText;
-        public float respawnSeconds = 5f;
 
-        private readonly List<IngredientType> required = new();
-        private readonly List<IngredientType> remaining = new();
-        private bool hasOrder;
-        private float orderAge;
+        [Tooltip("Shows the points awarded near the customer window.")]
+        public TMP_Text scorePopupText;
+
+        [Header("Timing")]
+        [Min(0f)] public float respawnSeconds = 5f;
+        [Min(0.1f)] public float popupSeconds = 2.5f;
+        [Min(0.1f)] public float popupFadeSeconds = 1f;
+
+        private OrderTicket currentOrder;
         private float respawnRemaining;
         private float popupRemaining;
+
+        private bool HasOrder => currentOrder != null;
 
         private void Update()
         {
             var game = GameManager.Instance;
             if (game == null || game.Phase != GamePhase.Playing) return;
 
-            if (hasOrder)
+            if (HasOrder)
             {
-                orderAge += Time.deltaTime;
+                currentOrder.Tick(Time.deltaTime);
             }
             else
             {
@@ -36,7 +42,7 @@ namespace YesChef
             if (popupRemaining > 0f)
             {
                 popupRemaining -= Time.deltaTime;
-                if (popupRemaining <= 0f && scorePopupText != null) scorePopupText.text = string.Empty;
+                RefreshPopup();
             }
 
             RefreshText();
@@ -44,80 +50,71 @@ namespace YesChef
 
         public string GetPrompt(PlayerController player)
         {
-            if (!hasOrder) return $"Window waiting for next order ({Mathf.Max(0f, respawnRemaining):0.0}s)";
+            if (!HasOrder) return $"Window waiting for next order ({Mathf.Max(0f, respawnRemaining):0.0}s)";
             if (!player.Inventory.HasItem) return "WINDOW: Bring a required prepared ingredient";
             var item = player.Inventory.HeldItem;
             if (!IngredientRules.IsDeliveryReady(item.Type, item.State)) return "That ingredient still needs preparation";
-            return remaining.Contains(item.Type) ? $"[E] Deliver {item.Type}" : "This order does not need that ingredient";
+            return currentOrder.RemainingIngredients.Contains(item.Type)
+                ? $"[E] Deliver {item.Type}"
+                : "This order does not need that ingredient";
         }
 
         public void Interact(PlayerController player)
         {
-            if (!hasOrder || !player.Inventory.HasItem) return;
+            if (!HasOrder || !player.Inventory.HasItem) return;
             var item = player.Inventory.HeldItem;
             if (!IngredientRules.IsDeliveryReady(item.Type, item.State)) return;
 
-            var index = remaining.IndexOf(item.Type);
-            if (index < 0) return;
+            if (!currentOrder.TryDeliver(item.Type)) return;
 
-            remaining.RemoveAt(index);
             var delivered = player.Inventory.ConsumeHeld();
             if (delivered != null) Destroy(delivered.gameObject);
 
-            if (remaining.Count == 0) CompleteOrder();
+            if (currentOrder.IsComplete) CompleteOrder();
             RefreshText();
         }
 
         public void CreateOrder()
         {
-            required.Clear();
-            remaining.Clear();
-            var ingredientCount = Random.value < 0.5f ? 2 : 3;
-            for (var i = 0; i < ingredientCount; i++)
-            {
-                var ingredient = (IngredientType)Random.Range(0, 3);
-                required.Add(ingredient);
-                remaining.Add(ingredient);
-            }
-            orderAge = 0f;
+            currentOrder = OrderGenerator.CreateRandom();
             respawnRemaining = 0f;
-            hasOrder = true;
             RefreshText();
         }
 
         public void ResetWindow()
         {
             popupRemaining = 0f;
-            if (scorePopupText != null) scorePopupText.text = string.Empty;
+            ClearPopup();
             CreateOrder();
         }
 
         private void CompleteOrder()
         {
-            var awarded = OrderScoring.Calculate(required, orderAge);
+            var awarded = currentOrder.CalculateScore();
             GameManager.Instance.AddScore(awarded);
             if (scorePopupText != null)
             {
                 scorePopupText.text = awarded >= 0
                     ? $"<color=#7DFF72>+{awarded}</color>"
                     : $"<color=#FF6868>{awarded}</color>";
+                scorePopupText.alpha = 1f;
             }
-            popupRemaining = 2.5f;
-            hasOrder = false;
+            popupRemaining = popupSeconds;
+            currentOrder = null;
             respawnRemaining = respawnSeconds;
-            required.Clear();
-            remaining.Clear();
         }
 
         private void RefreshText()
         {
             if (orderText == null) return;
-            if (!hasOrder)
+            if (!HasOrder)
             {
                 orderText.text = $"<b>NEXT ORDER</b>\n{Mathf.Max(0f, respawnRemaining):0.0}s";
                 return;
             }
 
+            var required = currentOrder.RequiredIngredients;
+            var remaining = currentOrder.RemainingIngredients;
             var ingredients = string.Join("  ", required.Select((type, index) =>
             {
                 var deliveredCount = required.Count(x => x == type) - remaining.Count(x => x == type);
@@ -126,7 +123,21 @@ namespace YesChef
                 var color = ColorUtility.ToHtmlStringRGB(IngredientRules.Color(type));
                 return done ? $"<s>{IngredientRules.ShortName(type)}</s>" : $"<color=#{color}>{IngredientRules.ShortName(type)}</color>";
             }));
-            orderText.text = $"<b>ORDER</b>  {orderAge:0}s\n{ingredients}";
+            orderText.text = $"<b>ORDER</b>  {currentOrder.SecondsOpen:0}s\n{ingredients}";
+        }
+
+        private void RefreshPopup()
+        {
+            if (scorePopupText == null) return;
+            scorePopupText.alpha = Mathf.Clamp01(popupRemaining / popupFadeSeconds);
+            if (popupRemaining <= 0f) ClearPopup();
+        }
+
+        private void ClearPopup()
+        {
+            if (scorePopupText == null) return;
+            scorePopupText.text = string.Empty;
+            scorePopupText.alpha = 1f;
         }
     }
 }

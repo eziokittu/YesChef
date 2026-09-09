@@ -32,6 +32,7 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Fixed top-down 3D kitchen with the entire play area visible
 - Four simultaneous randomized orders with duplicate ingredients supported
 - 50/50 selection between two- and three-ingredient orders
+- All 36 ordered two- and three-ingredient recipe variations supported and validator-checked
 - One-item player inventory
 - Two-second vegetable chopping with countdown and prepared visual
 - Two independent six-second meat cooking slots with countdowns and cooked visual
@@ -39,7 +40,11 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Order scoring using ingredient value minus floored seconds open, including negative scores
 - Five-second order respawn delay and fading score feedback
 - Three-minute game timer, instructions, pause, results, restart, quit, current score, and persistent high score
-- TextMesh Pro HUD and world-space station/order displays
+- Polished TextMesh Pro HUD, held-item display, readable world-space order cards, fading score popups, and station progress bars
+
+## Understanding the code
+
+Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). It explains the complete gameplay flow, each script's single responsibility, duplicate-order handling, scoring, and concise interview talking points.
 
 ## Low-poly art pipeline
 

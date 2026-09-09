@@ -84,6 +84,8 @@ namespace YesChef
 
         private void FindInteraction()
         {
+            // A station may have several child components or colliders. Distinct()
+            // collapses those into one option before selecting the nearest one.
             currentInteractable = Physics.OverlapSphere(transform.position, interactionRadius)
                 .SelectMany(collider => collider.GetComponentsInParent<MonoBehaviour>())
                 .OfType<IInteractable>()
