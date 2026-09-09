@@ -43,8 +43,8 @@ Assets/
 
 ## Implementation order
 
-1. Create a Universal 3D Unity project in this repository folder.
-2. Set Unity asset serialization to **Force Text** and version-control mode to **Visible Meta Files**.
+1. Create the Unity 6000.3.11f1 Core 3D project in this repository folder. (Complete.)
+2. Set asset serialization to **Force Text** and version-control mode to **Visible Meta Files**. (Verified.)
 3. Block out one kitchen scene with walls, four windows, refrigerator, table, two-slot stove, trash, player, and a fixed top-down camera.
 4. Build the player movement and a single reusable interaction interface.
 5. Implement the ingredient state flow: raw, preparing, prepared, held, and delivered/discarded.

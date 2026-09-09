@@ -1,23 +1,34 @@
 # Unity generated folders
-[Ll]ibrary/
-[Tt]emp/
-[Oo]bj/
-[Bb]uild/
-[Bb]uilds/
-[Ll]ogs/
-[Uu]ser[Ss]ettings/
-[Mm]emoryCaptures/
-[Rr]ecordings/
+.utmp/
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.log
+*.blend1
+*.blend1.meta
 
-# Asset Store Tools
+# Asset Store and generated editor tools
 /[Aa]ssets/AssetStoreTools*
+/[Aa]ssets/Plugins/Editor/JetBrains*
+*.DotSettings.user
 
 # IDE and editor files
 .vs/
 .vscode/
 .idea/
+.gradle/
+ExportedObj/
+.consulo/
 *.csproj
+*.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -29,9 +40,13 @@
 *.mdb
 *.opendb
 *.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
 
 # Unity crash and diagnostic files
 sysinfo.txt
+mono_crash.*
 crashlytics-build.properties
 
 # Builds and packaged applications
@@ -39,6 +54,20 @@ crashlytics-build.properties
 *.aab
 *.app
 *.unitypackage
+*.unitypackage.meta
+
+# Test Runner, Addressables, Visual Scripting, and UI Toolkit output
+InitTestScene*.unity*
+/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+/ServerData/
+/[Aa]ssets/StreamingAssets/aa*
+/[Aa]ssets/AddressableAssetsData/link.xml*
+/[Aa]ssets/Addressables_Temp*
+/[Aa]ssets/AddressableAssetsData/*/*.bin*
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db*
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers*
+/UIElementsSchema/
+/[Aa]ssets/[Ss]ceneDependencyCache*
 
 # OS-generated files
 .DS_Store
