@@ -12,24 +12,59 @@ namespace YesChef
             var arguments = Environment.GetCommandLineArgs();
             if (Array.IndexOf(arguments, "-yeschef-gameplay-capture") >= 0)
             {
-                StartCoroutine(CaptureAndQuit(true));
+                StartCoroutine(CaptureAndQuit(true, false, false));
+            }
+            else if (Array.IndexOf(arguments, "-yeschef-fridge-capture") >= 0)
+            {
+                StartCoroutine(CaptureAndQuit(true, true, false));
+            }
+            else if (Array.IndexOf(arguments, "-yeschef-stove-capture") >= 0)
+            {
+                StartCoroutine(CaptureAndQuit(true, false, true));
             }
             else if (Array.IndexOf(arguments, "-yeschef-capture") >= 0)
             {
-                StartCoroutine(CaptureAndQuit(false));
+                StartCoroutine(CaptureAndQuit(false, false, false));
             }
         }
 
-        private static IEnumerator CaptureAndQuit(bool beginGame)
+        private static IEnumerator CaptureAndQuit(bool beginGame, bool openFridge, bool lightStove)
         {
             yield return null;
             if (beginGame) GameManager.Instance.BeginGame();
+            if (openFridge)
+            {
+                GameManager.Instance.fridgeMenu.closeDistance = 100f;
+                GameManager.Instance.fridgeMenu.Open(GameManager.Instance.player);
+            }
+            if (lightStove)
+            {
+                var game = GameManager.Instance;
+                game.fridgeMenu.refrigerator.TryTake(game.player, IngredientType.Meat);
+                game.stoves[0].Interact(game.player);
+            }
             yield return new WaitForSecondsRealtime(0.35f);
+            if (beginGame)
+            {
+                var chef = GameManager.Instance.player;
+                Debug.Log($"YES_CHEF_RUNTIME_PLAYER: world={chef.transform.position}, screen={Camera.main.WorldToScreenPoint(chef.transform.position + Vector3.up)}");
+                foreach (var renderer in chef.GetComponentsInChildren<Renderer>(true))
+                {
+                    Debug.Log($"YES_CHEF_RUNTIME_RENDERER: {renderer.name}, active={renderer.gameObject.activeInHierarchy}, enabled={renderer.enabled}, bounds={renderer.bounds.center}");
+                }
+            }
             yield return new WaitForEndOfFrame();
-            var fileName = beginGame ? "YesChef_Gameplay_Verification.png" : "YesChef_Verification.png";
+            var fileName = openFridge ? "YesChef_Fridge_Verification.png"
+                : lightStove ? "YesChef_Stove_Verification.png"
+                : beginGame ? "YesChef_Gameplay_Verification.png"
+                : "YesChef_Verification.png";
             var outputPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", fileName));
             ScreenCapture.CaptureScreenshot(outputPath, 1);
             yield return new WaitForSecondsRealtime(2f);
+            if (beginGame)
+            {
+                Debug.Log($"YES_CHEF_RUNTIME_IDLE_FOV: {GameManager.Instance.adaptiveCamera.virtualCamera.m_Lens.FieldOfView:0.00}");
+            }
             Application.Quit(0);
         }
     }

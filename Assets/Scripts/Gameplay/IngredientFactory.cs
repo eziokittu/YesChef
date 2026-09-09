@@ -43,7 +43,9 @@ namespace YesChef
             var instance = Instantiate(prefab, parent);
             instance.name = prefab.name;
             instance.transform.localPosition = Vector3.zero;
-            instance.transform.localRotation = Quaternion.identity;
+            // Blender authors Z-up assets. Rotate once at the visual boundary so
+            // every carried/placed ingredient is upright in Unity's Y-up world.
+            instance.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             instance.transform.localScale = Vector3.one;
             foreach (var collider in instance.GetComponentsInChildren<Collider>()) collider.enabled = false;
             return instance;

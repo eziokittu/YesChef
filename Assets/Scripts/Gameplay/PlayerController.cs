@@ -12,6 +12,7 @@ namespace YesChef
 
         public PlayerInventory Inventory { get; private set; }
         public Vector3 StartPosition { get; private set; }
+        public bool IsMoving { get; private set; }
 
         private CharacterController characterController;
         private IInteractable currentInteractable;
@@ -38,6 +39,7 @@ namespace YesChef
 
             if (game.Phase != GamePhase.Playing)
             {
+                IsMoving = false;
                 game.SetInteractionPrompt(string.Empty);
                 return;
             }
@@ -71,9 +73,10 @@ namespace YesChef
         {
             var input = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
             input = Vector3.ClampMagnitude(input, 1f);
+            IsMoving = input.sqrMagnitude > 0.01f;
             characterController.SimpleMove(input * moveSpeed);
 
-            if (input.sqrMagnitude > 0.01f && visualRoot != null)
+            if (IsMoving && visualRoot != null)
             {
                 visualRoot.rotation = Quaternion.Slerp(
                     visualRoot.rotation,
@@ -93,7 +96,8 @@ namespace YesChef
                 .OrderBy(interactable => Vector3.SqrMagnitude(((MonoBehaviour)interactable).transform.position - transform.position))
                 .FirstOrDefault();
 
-            GameManager.Instance.SetInteractionPrompt(currentInteractable?.GetPrompt(this) ?? string.Empty);
+            var prompt = currentInteractable?.GetPrompt(this);
+            GameManager.Instance.SetInteractionPrompt(string.IsNullOrEmpty(prompt) ? Inventory.GetGuidance() : prompt);
         }
     }
 }

@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace YesChef
 {
@@ -13,14 +14,18 @@ namespace YesChef
         public PlayerController player;
         public CustomerWindow[] windows;
         public ChoppingTableStation choppingTable;
-        public StoveStation stove;
+        public StoveStation[] stoves;
+        public FridgeMenuController fridgeMenu;
+        public AdaptiveCinemachineCamera adaptiveCamera;
 
         [Header("HUD")]
         public TMP_Text timerText;
         public TMP_Text scoreText;
         public TMP_Text highScoreText;
         public TMP_Text heldItemText;
+        public Image heldItemColor;
         public TMP_Text interactionText;
+        public GameObject controlsStrip;
 
         [Header("Panels")]
         public GameObject instructionsPanel;
@@ -69,11 +74,14 @@ namespace YesChef
             remainingTime = matchSeconds;
             player.ResetPlayer();
             choppingTable.ResetStation();
-            stove.ResetStation();
+            foreach (var stove in stoves) stove.ResetStation();
             foreach (var customerWindow in windows) customerWindow.ResetWindow();
+            fridgeMenu?.Close();
+            adaptiveCamera?.ResetZoom();
             instructionsPanel.SetActive(false);
             pausePanel.SetActive(false);
             resultsPanel.SetActive(false);
+            if (controlsStrip != null) controlsStrip.SetActive(true);
             SetInteractionPrompt(string.Empty);
             RefreshHud();
         }
@@ -85,6 +93,7 @@ namespace YesChef
                 Phase = GamePhase.Paused;
                 Time.timeScale = 0f;
                 pausePanel.SetActive(true);
+                fridgeMenu?.Close();
             }
             else if (Phase == GamePhase.Paused)
             {
@@ -120,6 +129,7 @@ namespace YesChef
             instructionsPanel.SetActive(true);
             pausePanel.SetActive(false);
             resultsPanel.SetActive(false);
+            if (controlsStrip != null) controlsStrip.SetActive(false);
         }
 
         private void EndGame()
@@ -137,6 +147,8 @@ namespace YesChef
             resultScoreText.text = $"Final score: <b>{Score}</b>\nHigh score: <b>{HighScore}</b>";
             newHighScoreText.text = isNewHighScore ? "NEW HIGH SCORE!" : string.Empty;
             resultsPanel.SetActive(true);
+            if (controlsStrip != null) controlsStrip.SetActive(false);
+            fridgeMenu?.Close();
             RefreshHud();
         }
 
@@ -152,6 +164,10 @@ namespace YesChef
                 heldItemText.text = item == null
                     ? "HANDS  <color=#9AA3A8>EMPTY</color>"
                     : $"HANDS  <color=#{ColorUtility.ToHtmlStringRGB(IngredientRules.Color(item.Type))}>{item.State.ToString().ToUpperInvariant()} {item.Type.ToString().ToUpperInvariant()}</color>";
+                if (heldItemColor != null)
+                {
+                    heldItemColor.color = item == null ? new Color(0.25f, 0.28f, 0.30f, 0.7f) : IngredientRules.Color(item.Type);
+                }
             }
         }
     }

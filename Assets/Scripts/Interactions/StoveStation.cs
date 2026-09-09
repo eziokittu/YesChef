@@ -5,87 +5,82 @@ using UnityEngine.UI;
 namespace YesChef
 {
     /// <summary>
-    /// Two independent cooking slots. Each owns its ingredient and timer, so
-    /// both pieces of meat cook while the player performs other tasks.
+    /// One physical stove with one cooking position. The scene contains two of
+    /// these components on separate tables, so both pieces of meat cook independently.
     /// </summary>
     public sealed class StoveStation : MonoBehaviour, IInteractable
     {
-        private const int SlotCount = 2;
-
         [Header("Scene references")]
-        public Transform[] slotAnchors = new Transform[SlotCount];
+        public Transform itemAnchor;
         public TMP_Text statusText;
-        public Image[] progressFills = new Image[SlotCount];
+        public Image progressFill;
+        public ParticleSystem flameParticles;
+        public Light cookingLight;
 
         [Header("Rule")]
         [Min(0.1f)] public float cookingSeconds = 6f;
 
-        private readonly IngredientItem[] items = new IngredientItem[SlotCount];
-        private readonly float[] secondsRemaining = new float[SlotCount];
+        private IngredientItem item;
+        private float secondsRemaining;
 
         private void Update()
         {
             if (GameManager.Instance != null && GameManager.Instance.Phase == GamePhase.Playing)
             {
-                AdvanceCookingTimers();
+                AdvanceCooking();
             }
 
+            UpdateEffects();
             RefreshDisplay();
         }
 
         public string GetPrompt(PlayerController player)
         {
-            if (!player.Inventory.HasItem && FindFirstCookedSlot() >= 0) return "[E] Pick up cooked meat";
-            if (IsHoldingRawMeat(player) && FindFirstEmptySlot() >= 0) return "[E] Put raw meat on stove";
-            if (IsHoldingRawMeat(player)) return "STOVE: Both slots are occupied";
-            return "STOVE: Two independent meat slots";
+            if (item == null)
+            {
+                return IsHoldingRawMeat(player) ? "[E] Put raw meat on this stove" : "STOVE: Needs raw meat";
+            }
+
+            if (item.State == PreparationState.Prepared && !player.Inventory.HasItem) return "[E] Pick up cooked meat";
+            return item.State == PreparationState.Raw
+                ? $"Cooking... {secondsRemaining:0.0}s"
+                : "Cooked meat ready - empty your hands first";
         }
 
         public void Interact(PlayerController player)
         {
-            if (player.Inventory.HasItem) TryPlaceMeat(player);
-            else TryCollectCookedMeat(player);
+            if (item == null) TryPlaceMeat(player);
+            else TryCollectMeat(player);
             RefreshDisplay();
         }
 
         public void ResetStation()
         {
-            for (var slot = 0; slot < SlotCount; slot++)
-            {
-                if (items[slot] != null) Destroy(items[slot].gameObject);
-                items[slot] = null;
-                secondsRemaining[slot] = 0f;
-            }
+            if (item != null) Destroy(item.gameObject);
+            item = null;
+            secondsRemaining = 0f;
+            UpdateEffects();
             RefreshDisplay();
         }
 
-        private void AdvanceCookingTimers()
+        private void AdvanceCooking()
         {
-            for (var slot = 0; slot < SlotCount; slot++)
-            {
-                if (items[slot] == null || items[slot].State != PreparationState.Raw) continue;
-                secondsRemaining[slot] = Mathf.Max(0f, secondsRemaining[slot] - Time.deltaTime);
-                if (secondsRemaining[slot] <= 0f) items[slot].SetPrepared();
-            }
+            if (item == null || item.State != PreparationState.Raw) return;
+            secondsRemaining = Mathf.Max(0f, secondsRemaining - Time.deltaTime);
+            if (secondsRemaining <= 0f) item.SetPrepared();
         }
 
         private void TryPlaceMeat(PlayerController player)
         {
-            var emptySlot = FindFirstEmptySlot();
-            if (!IsHoldingRawMeat(player) || emptySlot < 0) return;
-            items[emptySlot] = player.Inventory.ReleaseTo(slotAnchors[emptySlot], 0.48f);
-            secondsRemaining[emptySlot] = cookingSeconds;
+            if (!IsHoldingRawMeat(player)) return;
+            item = player.Inventory.ReleaseTo(itemAnchor, 0.48f);
+            secondsRemaining = cookingSeconds;
         }
 
-        private void TryCollectCookedMeat(PlayerController player)
+        private void TryCollectMeat(PlayerController player)
         {
-            var cookedSlot = FindFirstCookedSlot();
-            if (cookedSlot < 0) return;
-            if (player.Inventory.TryTake(items[cookedSlot]))
-            {
-                items[cookedSlot] = null;
-                secondsRemaining[cookedSlot] = 0f;
-            }
+            if (item.State != PreparationState.Prepared || player.Inventory.HasItem) return;
+            if (player.Inventory.TryTake(item)) item = null;
         }
 
         private static bool IsHoldingRawMeat(PlayerController player)
@@ -94,42 +89,36 @@ namespace YesChef
             return held != null && held.Type == IngredientType.Meat && held.State == PreparationState.Raw;
         }
 
-        private int FindFirstEmptySlot()
+        private void UpdateEffects()
         {
-            for (var slot = 0; slot < SlotCount; slot++) if (items[slot] == null) return slot;
-            return -1;
-        }
-
-        private int FindFirstCookedSlot()
-        {
-            for (var slot = 0; slot < SlotCount; slot++)
+            var stoveIsOn = item != null && item.State == PreparationState.Raw;
+            if (flameParticles != null)
             {
-                if (items[slot] != null && items[slot].State == PreparationState.Prepared) return slot;
+                if (stoveIsOn && !flameParticles.isPlaying) flameParticles.Play();
+                else if (!stoveIsOn && flameParticles.isPlaying) flameParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
-            return -1;
-        }
 
-        private string GetSlotText(int slot)
-        {
-            if (items[slot] == null) return "Empty";
-            return items[slot].State == PreparationState.Prepared
-                ? "<color=#7DFF72>Cooked!</color>"
-                : $"{secondsRemaining[slot]:0.0}s";
+            if (cookingLight != null)
+            {
+                cookingLight.enabled = stoveIsOn;
+                if (stoveIsOn) cookingLight.intensity = 2.1f + Mathf.Sin(Time.time * 12f) * 0.45f;
+            }
         }
 
         private void RefreshDisplay()
         {
             if (statusText != null)
             {
-                statusText.text = $"<b>STOVE</b>\n1: {GetSlotText(0)}   2: {GetSlotText(1)}";
+                statusText.text = item == null ? "<b>STOVE</b>\nEmpty"
+                    : item.State == PreparationState.Prepared ? "<b>STOVE</b>\n<color=#7DFF72>Cooked - ready!</color>"
+                    : $"<b>STOVE</b>\nCooking  {secondsRemaining:0.0}s";
             }
 
-            for (var slot = 0; slot < progressFills.Length && slot < SlotCount; slot++)
+            if (progressFill != null)
             {
-                if (progressFills[slot] == null) continue;
-                progressFills[slot].fillAmount = items[slot] == null ? 0f
-                    : items[slot].State == PreparationState.Prepared ? 1f
-                    : 1f - secondsRemaining[slot] / cookingSeconds;
+                progressFill.fillAmount = item == null ? 0f
+                    : item.State == PreparationState.Prepared ? 1f
+                    : 1f - secondsRemaining / cookingSeconds;
             }
         }
     }

@@ -8,6 +8,18 @@ namespace YesChef
         public IngredientItem HeldItem { get; private set; }
         public bool HasItem => HeldItem != null;
 
+        public string GetGuidance()
+        {
+            if (!HasItem) return "NEXT: Visit the fridge and choose an ingredient";
+
+            return (HeldItem.Type, HeldItem.State) switch
+            {
+                (IngredientType.Vegetable, PreparationState.Raw) => "NEXT: Take the vegetable to a chopping table",
+                (IngredientType.Meat, PreparationState.Raw) => "NEXT: Put the meat on either stove",
+                _ => "NEXT: Deliver this prepared ingredient to a matching customer table"
+            };
+        }
+
         public bool TryTake(IngredientItem item)
         {
             if (item == null || HasItem)

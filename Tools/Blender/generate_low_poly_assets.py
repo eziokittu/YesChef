@@ -144,6 +144,10 @@ MEAT = material("M_RawMeat", (0.70, 0.12, 0.15), roughness=0.58)
 COOKED = material("M_CookedMeat", (0.28, 0.095, 0.04), roughness=0.78)
 SKIN = material("M_Skin", (0.88, 0.59, 0.40), roughness=0.72)
 BLUE = material("M_Blue", (0.06, 0.35, 0.70), roughness=0.55)
+PINK = material("M_Pink", (0.86, 0.26, 0.48), roughness=0.62)
+PURPLE = material("M_Purple", (0.42, 0.18, 0.66), roughness=0.62)
+BLACK = material("M_Black", (0.025, 0.02, 0.018), roughness=0.75)
+GRASS = material("M_Grass", (0.13, 0.43, 0.17), roughness=0.92)
 GLASS = material("M_Window", (0.15, 0.55, 0.72), metallic=0.05, roughness=0.25)
 WALL = material("M_Wall", (0.70, 0.74, 0.68), roughness=0.9)
 FLOOR = material("M_Floor", (0.24, 0.30, 0.31), roughness=0.86)
@@ -185,6 +189,13 @@ for x in (-0.58, 0.58):
     cylinder(c, f"Knob_{x}", (x, -0.60, 0.75), 0.095, 0.10, DARK, vertices=12, rotation=(math.pi / 2, 0, 0))
 box(c, "OvenDoor", (0, -0.59, 0.40), (1.52, 0.08, 0.58), DARK, 0.04)
 parent_parts(c, root); assets["Stove"] = c
+
+c, root = begin_asset("SingleStove")
+box(c, "SingleStoveBody", (0, 0, 0.22), (1.05, 0.92, 0.44), STEEL, 0.07)
+box(c, "SingleStoveTop", (0, 0, 0.48), (1.08, 0.95, 0.10), DARK, 0.04)
+torus(c, "SingleBurner", (0, 0, 0.56), 0.30, 0.055, RED)
+cylinder(c, "SingleKnob", (0, -0.49, 0.20), 0.09, 0.10, DARK, vertices=12, rotation=(math.pi / 2, 0, 0))
+parent_parts(c, root); assets["SingleStove"] = c
 
 c, root = begin_asset("TrashBin")
 cylinder(c, "Bin", (0, 0, 0.55), 0.48, 1.1, STEEL, vertices=12)
@@ -242,6 +253,61 @@ ico(c, "CookedSteak", (0, 0, 0.15), 0.46, COOKED, scale=(1.2, 0.78, 0.32), subdi
 for i, x in enumerate((-0.20, 0.0, 0.20)):
     box(c, f"GrillMark_{i}", (x, -0.35, 0.19), (0.055, 0.42, 0.035), DARK, 0.01).rotation_euler.z = -0.35
 parent_parts(c, root); assets["MeatCooked"] = c
+
+# A reusable customer with three hairstyle meshes. Unity enables one hairstyle
+# and recolours named body parts to produce many distinct visitors.
+c, root = begin_asset("Customer")
+cylinder(c, "ShirtBody", (0, 0, 0.88), 0.40, 1.05, BLUE, vertices=10)
+ico(c, "SkinHead", (0, 0, 1.66), 0.37, SKIN, subdivisions=2)
+for x in (-0.48, 0.48):
+    cylinder(c, f"SkinArm_{x}", (x, 0, 0.92), 0.11, 0.65, SKIN, vertices=8, rotation=(0, math.pi / 2, 0))
+for x in (-0.19, 0.19):
+    cylinder(c, f"PantsLeg_{x}", (x, 0, 0.25), 0.14, 0.50, PURPLE, vertices=8)
+cylinder(c, "HairStyle_Cap", (0, 0, 1.91), 0.34, 0.18, BLACK, vertices=10)
+ico(c, "HairStyle_Bun", (0, 0.08, 2.03), 0.22, BLACK, subdivisions=1)
+for x in (-0.17, 0, 0.17):
+    ico(c, f"HairStyle_Curls_{x}", (x, -0.02, 1.94), 0.16, BLACK, subdivisions=1)
+parent_parts(c, root); assets["Customer"] = c
+
+c, root = begin_asset("Tree")
+cylinder(c, "TreeTrunk", (0, 0, 1.05), 0.24, 2.1, WOOD, vertices=8)
+ico(c, "TreeLeavesLow", (0, 0, 2.35), 1.05, GREEN, scale=(1, 1, 0.8), subdivisions=1)
+ico(c, "TreeLeavesHigh", (0.25, 0, 3.0), 0.78, GREEN_LIGHT, scale=(1, 1, 0.85), subdivisions=1)
+parent_parts(c, root); assets["Tree"] = c
+
+c, root = begin_asset("Flower")
+cylinder(c, "FlowerStem", (0, 0, 0.28), 0.035, 0.56, GREEN, vertices=6)
+for angle in range(0, 360, 72):
+    rad = math.radians(angle)
+    ico(c, f"FlowerPetal_{angle}", (math.cos(rad) * 0.14, math.sin(rad) * 0.14, 0.58), 0.11, PINK, scale=(1, 1, 0.45), subdivisions=1)
+ico(c, "FlowerCenter", (0, 0, 0.59), 0.09, YELLOW, scale=(1, 1, 0.55), subdivisions=1)
+parent_parts(c, root); assets["Flower"] = c
+
+c, root = begin_asset("Lotus")
+for angle in range(0, 360, 45):
+    rad = math.radians(angle)
+    petal = ico(c, f"LotusPetal_{angle}", (math.cos(rad) * 0.22, math.sin(rad) * 0.22, 0.08), 0.18, PINK, scale=(1.35, 0.65, 0.30), subdivisions=1)
+    petal.rotation_euler.z = rad
+ico(c, "LotusCenter", (0, 0, 0.12), 0.12, YELLOW, scale=(1, 1, 0.5), subdivisions=1)
+parent_parts(c, root); assets["Lotus"] = c
+
+c, root = begin_asset("Frog")
+ico(c, "FrogBody", (0, 0, 0.18), 0.26, GREEN_LIGHT, scale=(1.2, 0.8, 0.55), subdivisions=1)
+for x in (-0.15, 0.15):
+    ico(c, f"FrogEye_{x}", (x, -0.17, 0.33), 0.07, YELLOW, subdivisions=1)
+parent_parts(c, root); assets["Frog"] = c
+
+c, root = begin_asset("Fish")
+ico(c, "FishBody", (0, 0, 0), 0.30, ORANGE, scale=(1.45, 0.65, 0.55), subdivisions=1)
+bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.25, radius2=0, depth=0.35, location=(0.47, 0, 0), rotation=(0, math.pi / 2, 0))
+tail = move_to_collection(bpy.context.object, c); tail.name = "FishTail"; finish(tail, YELLOW, 0.02)
+parent_parts(c, root); assets["Fish"] = c
+
+c, root = begin_asset("Snake")
+for index in range(7):
+    ico(c, f"SnakeSegment_{index}", ((index - 3) * 0.18, math.sin(index * 1.4) * 0.12, 0), 0.13, GREEN, scale=(1.2, 0.8, 0.65), subdivisions=1)
+ico(c, "SnakeHead", (-0.68, -0.08, 0.02), 0.18, GREEN_LIGHT, scale=(1.2, 0.9, 0.72), subdivisions=1)
+parent_parts(c, root); assets["Snake"] = c
 
 for asset_name, collection in assets.items():
     export_asset(asset_name, collection)

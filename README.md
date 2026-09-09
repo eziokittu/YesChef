@@ -7,6 +7,7 @@ A small 3D, top-down kitchen game built for the Tentworks Interactive developer 
 - Unity 6000.3.11f1 (meets the assignment requirement of Unity 6000+)
 - C#
 - Target platform: Windows desktop
+- Unity packages: Cinemachine 2.10.5 and Unity UI/TextMesh Pro
 - Third-party plugins: none
 
 ## Core game loop
@@ -29,18 +30,23 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 
 ## Implemented features
 
-- Fixed top-down 3D kitchen with the entire play area visible
+- Perspective top-down 3D kitchen driven by Cinemachine with smooth player follow
+- Idle camera zoom-in and movement zoom-out while keeping the chef centred
 - Four simultaneous randomized orders with duplicate ingredients supported
 - 50/50 selection between two- and three-ingredient orders
 - All 36 ordered two- and three-ingredient recipe variations supported and validator-checked
 - One-item player inventory
 - Two-second vegetable chopping with countdown and prepared visual
-- Two independent six-second meat cooking slots with countdowns and cooked visual
+- Two physically separate stove tables with independent six-second cooking, flame particles and pulsing point lights
 - Direct cheese delivery and a trash station for all ingredient states
 - Order scoring using ingredient value minus floored seconds open, including negative scores
 - Five-second order respawn delay and fading score feedback
 - Three-minute game timer, instructions, pause, results, restart, quit, current score, and persistent high score
-- Polished TextMesh Pro HUD, held-item display, readable world-space order cards, fading score popups, and station progress bars
+- Persistent bottom control/guidance strip plus a scrollable, clickable refrigerator catalogue
+- Physical customers with randomized names, clothing, skin tones and hairstyles
+- Timed customer speech clouds that react to service speed, serving-table order cards and fading score popups
+- Outdoor road and walking customer routes, garden/flowers, tall windowed building, and marsh with lotus, frogs, fish and rare snakes
+- Polished TextMesh Pro HUD, held-item display, larger world-space labels and station progress bars
 
 ## Understanding the code
 
@@ -52,6 +58,7 @@ Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). It explains the compl
 - Blender generation script: `Tools/Blender/generate_low_poly_assets.py`
 - Unity-ready FBXs: `Assets/Art/Models/`
 - Included assets: chef, refrigerator, chopping table, stove, trash bin, customer window, floor/wall modules, raw/chopped vegetables, cheese, and raw/cooked meat
+- Additional Blender assets: single stove, customizable customer, trees, flowers, lotus, frogs, fish and snake
 
 Regenerate the models with Blender 5.2+ from the repository root:
 

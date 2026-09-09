@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Cinemachine;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Events;
@@ -13,65 +14,74 @@ using UnityEngine.UI;
 
 namespace YesChef.Editor
 {
+    /// <summary>
+    /// Builds the editable demonstration scene. This runs only in the editor;
+    /// the shipped game uses normal serialized references and never rebuilds itself.
+    /// </summary>
     public static class YesChefSceneBuilder
     {
         private const string ScenePath = "Assets/Scenes/Kitchen.unity";
 
         private static readonly Color Cream = new(0.96f, 0.91f, 0.78f, 1f);
-        private static readonly Color Ink = new(0.08f, 0.10f, 0.13f, 1f);
+        private static readonly Color Ink = new(0.07f, 0.09f, 0.11f, 1f);
         private static readonly Color Tomato = new(0.90f, 0.20f, 0.15f, 1f);
-        private static readonly Color Panel = new(0.055f, 0.07f, 0.09f, 0.94f);
+        private static readonly Color Panel = new(0.045f, 0.06f, 0.075f, 0.96f);
         private static TMP_FontAsset defaultFont;
 
-        [MenuItem("Tools/Yes Chef/Build Playable Kitchen")]
+        [MenuItem("Tools/Yes Chef/Build Top-Down World")]
         public static void BuildPlayableKitchen()
         {
             EnsureTextMeshProResources();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
             var models = LoadModels();
+
             CreateEnvironment(models);
-            CreateCameraAndLighting();
+            CreateRoomLighting();
 
             var gameRoot = new GameObject("GAMEPLAY");
             gameRoot.AddComponent<RuntimeVerifier>();
-            var factory = gameRoot.AddComponent<IngredientFactory>();
-            factory.vegetableRawPrefab = models["VegetableRaw"];
-            factory.vegetablePreparedPrefab = models["VegetableChopped"];
-            factory.cheesePrefab = models["Cheese"];
-            factory.meatRawPrefab = models["MeatRaw"];
-            factory.meatPreparedPrefab = models["MeatCooked"];
-
+            var factory = CreateIngredientFactory(gameRoot, models);
             var player = CreatePlayer(models["Chef"]);
             var refrigerator = CreateRefrigerator(models["Refrigerator"], factory);
-            var table = CreateTable(models["ChoppingTable"]);
-            var stove = CreateStove(models["Stove"]);
+            var table = CreateChoppingTable(models["ChoppingTable"]);
+            var stoves = new[]
+            {
+                CreateStove("Stove A", new Vector3(1.25f, 0f, -0.35f), models),
+                CreateStove("Stove B", new Vector3(3.75f, 0f, -0.35f), models)
+            };
             var trash = CreateTrash(models["TrashBin"]);
-            var windows = CreateWindows(models["CustomerWindow"]);
+            var windows = CreateCustomerTables(models);
 
             refrigerator.transform.SetParent(gameRoot.transform);
             table.transform.SetParent(gameRoot.transform);
-            stove.transform.SetParent(gameRoot.transform);
+            foreach (var stove in stoves) stove.transform.SetParent(gameRoot.transform);
             trash.transform.SetParent(gameRoot.transform);
             foreach (var window in windows) window.transform.SetParent(gameRoot.transform);
 
-            var ui = CreateScreenUi();
+            var camera = CreateCinemachineCamera(player);
+            var ui = CreateScreenUi(refrigerator, player);
+
             var manager = gameRoot.AddComponent<GameManager>();
             manager.player = player;
             manager.windows = windows.ToArray();
             manager.choppingTable = table;
-            manager.stove = stove;
+            manager.stoves = stoves;
+            manager.fridgeMenu = ui.fridgeMenu;
+            manager.adaptiveCamera = camera.controller;
             manager.timerText = ui.timer;
             manager.scoreText = ui.score;
             manager.highScoreText = ui.highScore;
             manager.heldItemText = ui.heldItem;
+            manager.heldItemColor = ui.heldColor;
             manager.interactionText = ui.prompt;
+            manager.controlsStrip = ui.controlsStrip;
             manager.instructionsPanel = ui.instructions;
             manager.pausePanel = ui.pause;
             manager.resultsPanel = ui.results;
             manager.resultScoreText = ui.resultScore;
             manager.newHighScoreText = ui.newHighScore;
 
+            refrigerator.menu = ui.fridgeMenu;
             UnityEventTools.AddPersistentListener(ui.startButton.onClick, manager.BeginGame);
             UnityEventTools.AddPersistentListener(ui.pauseButton.onClick, manager.TogglePause);
             UnityEventTools.AddPersistentListener(ui.resumeButton.onClick, manager.TogglePause);
@@ -82,7 +92,7 @@ namespace YesChef.Editor
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             Selection.activeGameObject = player.gameObject;
-            Debug.Log("Yes Chef playable kitchen created and saved to " + ScenePath);
+            Debug.Log("Yes Chef top-down perspective world created and saved to " + ScenePath);
         }
 
         private static void EnsureTextMeshProResources()
@@ -94,92 +104,156 @@ namespace YesChef.Editor
             var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(TMP_Text).Assembly);
             if (package == null) throw new FileNotFoundException("The Unity UI/TextMesh Pro package is not installed.");
             var resourcesPackage = Path.Combine(package.resolvedPath, "Package Resources", "TMP Essential Resources.unitypackage");
-            if (!File.Exists(resourcesPackage)) throw new FileNotFoundException("TMP Essential Resources package was not found.", resourcesPackage);
             AssetDatabase.ImportPackage(resourcesPackage, false);
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
-            if (defaultFont == null) throw new MissingReferenceException("TMP LiberationSans SDF font was not imported.");
+            if (defaultFont == null) throw new MissingReferenceException("TMP essential resources could not be imported.");
         }
 
         private static Dictionary<string, GameObject> LoadModels()
         {
             var names = new[]
             {
-                "KitchenFloor", "KitchenWall", "Refrigerator", "ChoppingTable", "Stove", "TrashBin",
-                "CustomerWindow", "Chef", "VegetableRaw", "VegetableChopped", "Cheese", "MeatRaw", "MeatCooked"
+                "Refrigerator", "ChoppingTable", "SingleStove", "TrashBin", "Chef", "Customer",
+                "VegetableRaw", "VegetableChopped", "Cheese", "MeatRaw", "MeatCooked",
+                "Tree", "Flower", "Lotus", "Frog", "Fish", "Snake"
             };
-            var models = new Dictionary<string, GameObject>();
-            foreach (var name in names)
+            return names.ToDictionary(name => name, name =>
             {
-                var path = $"Assets/Art/Models/{name}.fbx";
-                var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (model == null) throw new MissingReferenceException($"Missing generated model: {path}");
-                models.Add(name, model);
-            }
-            return models;
+                var model = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Art/Models/{name}.fbx");
+                if (model == null) throw new MissingReferenceException($"Missing Blender model: Assets/Art/Models/{name}.fbx");
+                return model;
+            });
         }
 
-        private static void CreateEnvironment(Dictionary<string, GameObject> models)
+        private static IngredientFactory CreateIngredientFactory(GameObject root, IReadOnlyDictionary<string, GameObject> models)
+        {
+            var factory = root.AddComponent<IngredientFactory>();
+            factory.vegetableRawPrefab = models["VegetableRaw"];
+            factory.vegetablePreparedPrefab = models["VegetableChopped"];
+            factory.cheesePrefab = models["Cheese"];
+            factory.meatRawPrefab = models["MeatRaw"];
+            factory.meatPreparedPrefab = models["MeatCooked"];
+            return factory;
+        }
+
+        private static void CreateEnvironment(IReadOnlyDictionary<string, GameObject> models)
         {
             var environment = new GameObject("ENVIRONMENT").transform;
-            var floorMaterial = GetOrCreateMaterial("Kitchen Floor", new Color(0.18f, 0.23f, 0.24f));
-            var wallMaterial = GetOrCreateMaterial("Kitchen Walls", new Color(0.76f, 0.79f, 0.72f));
-            CreateVisualBox("Kitchen Floor", new Vector3(0, -0.09f, 0), new Vector3(14f, 0.18f, 10f), floorMaterial, environment);
-            CreateVisualBox("North Wall", new Vector3(0, 1.25f, 5f), new Vector3(14f, 2.5f, 0.25f), wallMaterial, environment);
-            CreateVisualBox("South Border", new Vector3(0, 0.32f, -5f), new Vector3(14f, 0.64f, 0.25f), wallMaterial, environment);
-            CreateVisualBox("East Border", new Vector3(7f, 0.32f, 0), new Vector3(0.25f, 0.64f, 10f), wallMaterial, environment);
-            CreateVisualBox("West Border", new Vector3(-7f, 0.32f, 0), new Vector3(0.25f, 0.64f, 10f), wallMaterial, environment);
+            var grass = GetOrCreateMaterial("Outdoor Grass", new Color(0.18f, 0.48f, 0.20f));
+            var kitchenFloor = GetOrCreateMaterial("Kitchen Floor", new Color(0.55f, 0.59f, 0.57f));
+            var wall = GetOrCreateMaterial("Kitchen Walls", new Color(0.92f, 0.88f, 0.72f));
+            var road = GetOrCreateMaterial("Road", new Color(0.13f, 0.15f, 0.17f));
+            var roadLine = GetOrCreateMaterial("Road Line", new Color(0.95f, 0.76f, 0.16f));
+            var water = GetOrCreateMaterial("Marsh Water", new Color(0.07f, 0.38f, 0.42f));
+            var stone = GetOrCreateMaterial("Building", new Color(0.33f, 0.36f, 0.43f));
+            var glass = GetOrCreateMaterial("Building Windows", new Color(0.12f, 0.62f, 0.86f));
 
-            CreateBoundary("Floor Collider", new Vector3(0, -0.12f, 0), new Vector3(14f, 0.24f, 10f), environment);
-            CreateBoundary("North Boundary", new Vector3(0, 1.25f, 5f), new Vector3(14f, 2.5f, 0.3f), environment);
-            CreateBoundary("South Boundary", new Vector3(0, 1.25f, -5f), new Vector3(14f, 2.5f, 0.3f), environment);
-            CreateBoundary("East Boundary", new Vector3(7f, 1.25f, 0), new Vector3(0.3f, 2.5f, 10f), environment);
-            CreateBoundary("West Boundary", new Vector3(-7f, 1.25f, 0), new Vector3(0.3f, 2.5f, 10f), environment);
+            CreateVisualBox("Outdoor Ground", new Vector3(0, -0.24f, 0), new Vector3(32f, 0.25f, 28f), grass, environment);
+            CreateVisualBox("Kitchen Floor", new Vector3(0, -0.08f, 0), new Vector3(12f, 0.18f, 10f), kitchenFloor, environment);
+            CreateVisualBox("North Kitchen Wall", new Vector3(0, 0.55f, 5f), new Vector3(12f, 1.1f, 0.25f), wall, environment);
+            CreateVisualBox("South Kitchen Wall", new Vector3(0, 0.55f, -5f), new Vector3(12f, 1.1f, 0.25f), wall, environment);
+            CreateVisualBox("East Kitchen Wall", new Vector3(6f, 0.55f, 0), new Vector3(0.25f, 1.1f, 10f), wall, environment);
+            CreateVisualBox("West Service Wall", new Vector3(-6f, 0.42f, 0), new Vector3(0.25f, 0.84f, 10f), wall, environment);
+
+            CreateBoundary("Kitchen Floor Collider", new Vector3(0, -0.12f, 0), new Vector3(12f, 0.24f, 10f), environment);
+            CreateBoundary("North Boundary", new Vector3(0, 1.1f, 5f), new Vector3(12f, 2.2f, 0.3f), environment);
+            CreateBoundary("South Boundary", new Vector3(0, 1.1f, -5f), new Vector3(12f, 2.2f, 0.3f), environment);
+            CreateBoundary("East Boundary", new Vector3(6f, 1.1f, 0), new Vector3(0.3f, 2.2f, 10f), environment);
+            CreateBoundary("West Boundary", new Vector3(-6f, 1.1f, 0), new Vector3(0.3f, 2.2f, 10f), environment);
+
+            CreateVisualBox("Road", new Vector3(-9.2f, -0.08f, 0), new Vector3(4.1f, 0.12f, 28f), road, environment);
+            CreateVisualBox("Road Centre Line", new Vector3(-9.2f, -0.005f, 0), new Vector3(0.12f, 0.03f, 28f), roadLine, environment);
+            for (var z = -12f; z <= 12f; z += 3f)
+            {
+                CreateVisualBox("Road Dash", new Vector3(-9.2f, 0.02f, z), new Vector3(0.18f, 0.035f, 1.2f), CreamMaterial(), environment);
+            }
+
+            CreateVisualBox("Marsh", new Vector3(11f, -0.10f, 0), new Vector3(8f, 0.10f, 28f), water, environment);
+            CreateBuilding(environment, stone, glass);
+            CreateNature(models, environment);
+            CreateMarshLife(models, environment);
         }
 
-        private static Material GetOrCreateMaterial(string name, Color color)
+        private static void CreateBuilding(Transform parent, Material stone, Material glass)
         {
-            var path = $"Assets/Materials/{name.Replace(' ', '_')}.mat";
-            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (existing != null) return existing;
-            var material = new Material(Shader.Find("Standard")) { name = name, color = color };
-            AssetDatabase.CreateAsset(material, path);
-            return material;
+            CreateVisualBox("North Building", new Vector3(0, 3.5f, 10f), new Vector3(15f, 7f, 4f), stone, parent);
+            CreateVisualBox("Building Roof", new Vector3(0, 7.1f, 10f), new Vector3(15.5f, 0.25f, 4.5f), InkMaterial(), parent);
+            for (var floor = 0; floor < 3; floor++)
+            {
+                for (var column = -3; column <= 3; column++)
+                {
+                    CreateVisualBox($"Window {floor}-{column}", new Vector3(column * 1.75f, 1.55f + floor * 1.85f, 7.95f),
+                        new Vector3(0.92f, 1.05f, 0.08f), glass, parent);
+                }
+            }
         }
 
-        private static void CreateVisualBox(string name, Vector3 position, Vector3 size, Material material, Transform parent)
+        private static void CreateNature(IReadOnlyDictionary<string, GameObject> models, Transform parent)
         {
-            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            visual.name = name;
-            visual.transform.SetParent(parent);
-            visual.transform.position = position;
-            visual.transform.localScale = size;
-            Object.DestroyImmediate(visual.GetComponent<Collider>());
-            visual.GetComponent<Renderer>().sharedMaterial = material;
+            var treePositions = new[]
+            {
+                new Vector3(-4.5f, 0, -8f), new Vector3(-1.5f, 0, -9.2f), new Vector3(2f, 0, -8.3f),
+                new Vector3(5.2f, 0, -9.5f), new Vector3(7.5f, 0, 7.2f)
+            };
+            foreach (var position in treePositions) AddModel(models["Tree"], "Low Poly Tree", position, Quaternion.identity, Vector3.one, parent);
+
+            for (var index = 0; index < 16; index++)
+            {
+                var x = -5.5f + (index % 8) * 1.5f;
+                var z = -6.5f - (index / 8) * 1.3f;
+                AddModel(models["Flower"], "Garden Flower", new Vector3(x, 0, z), Quaternion.Euler(0, index * 37f, 0), Vector3.one * 0.8f, parent);
+            }
         }
 
-        private static void CreateCameraAndLighting()
+        private static void CreateMarshLife(IReadOnlyDictionary<string, GameObject> models, Transform parent)
         {
-            var cameraObject = new GameObject("Main Camera");
-            cameraObject.tag = "MainCamera";
-            var camera = cameraObject.AddComponent<Camera>();
-            camera.orthographic = true;
-            camera.orthographicSize = 7.6f;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.055f, 0.075f, 0.085f);
-            cameraObject.transform.position = new Vector3(0, 15.5f, -8.5f);
-            cameraObject.transform.LookAt(new Vector3(0, 0, 0.4f));
+            foreach (var position in new[] { new Vector3(8.5f, 0, -3.5f), new Vector3(10.8f, 0, 2.2f), new Vector3(12.7f, 0, -0.5f), new Vector3(9.4f, 0, 5.8f) })
+            {
+                AddModel(models["Lotus"], "Lotus", position, Quaternion.identity, Vector3.one * 1.2f, parent);
+            }
+            AddModel(models["Frog"], "Frog", new Vector3(9f, 0.04f, 1.2f), Quaternion.Euler(0, 35, 0), Vector3.one, parent);
+            AddModel(models["Frog"], "Frog", new Vector3(12.5f, 0.04f, -4f), Quaternion.Euler(0, -45, 0), Vector3.one * 0.85f, parent);
 
-            var lightObject = new GameObject("Sun Light");
-            var light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.35f;
-            light.color = new Color(1f, 0.94f, 0.83f);
-            light.shadows = LightShadows.Soft;
-            lightObject.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
+            CreateWildlife(models["Fish"], "Swimming Fish A", new Vector3(8.2f, 0.02f, -5f), new Vector3(13.3f, 0.02f, -5f), 1.0f, false, parent);
+            CreateWildlife(models["Fish"], "Swimming Fish B", new Vector3(12.8f, 0.02f, 3.8f), new Vector3(8.5f, 0.02f, 3.8f), 0.75f, false, parent);
+            CreateWildlife(models["Snake"], "Rare Marsh Snake", new Vector3(8.3f, 0.05f, 6f), new Vector3(13.2f, 0.05f, -6f), 1.25f, true, parent);
+        }
 
+        private static void CreateWildlife(GameObject model, string name, Vector3 pointA, Vector3 pointB, float speed, bool rare, Transform parent)
+        {
+            var root = new GameObject(name);
+            root.transform.SetParent(parent);
+            root.transform.position = pointA;
+            AddModel(model, name + " Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
+            var mover = root.AddComponent<WildlifeMover>();
+            mover.pointA = pointA;
+            mover.pointB = pointB;
+            mover.speed = speed;
+            mover.rareAppearance = rare;
+        }
+
+        private static void CreateRoomLighting()
+        {
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.46f, 0.51f, 0.55f);
+            RenderSettings.ambientLight = new Color(0.22f, 0.25f, 0.27f);
+            var lightRoot = new GameObject("ROOM POINT LIGHTS").transform;
+            foreach (var position in new[]
+                     {
+                         new Vector3(-3.5f, 4.5f, -2.5f), new Vector3(0, 4.5f, -2.5f), new Vector3(3.5f, 4.5f, -2.5f),
+                         new Vector3(-3.5f, 4.5f, 2.5f), new Vector3(0, 4.5f, 2.5f), new Vector3(3.5f, 4.5f, 2.5f)
+                     })
+            {
+                var fixture = new GameObject("Warm Ceiling Point Light");
+                fixture.transform.SetParent(lightRoot);
+                fixture.transform.position = position;
+                var light = fixture.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.color = new Color(1f, 0.82f, 0.58f);
+                light.intensity = 2.2f;
+                light.range = 7f;
+                light.shadows = LightShadows.Soft;
+            }
         }
 
         private static PlayerController CreatePlayer(GameObject model)
@@ -198,146 +272,388 @@ namespace YesChef.Editor
 
             var hand = new GameObject("Hand Anchor").transform;
             hand.SetParent(visual.transform, false);
-            hand.localPosition = new Vector3(0, 1.35f, 0.62f);
+            hand.localPosition = new Vector3(0, 1.42f, 0.62f);
             inventory.handAnchor = hand;
             return player;
         }
 
         private static RefrigeratorStation CreateRefrigerator(GameObject model, IngredientFactory factory)
         {
-            var root = CreateStationRoot("Refrigerator Station", new Vector3(5.45f, 0, 3.5f), new Vector3(1.9f, 2.9f, 1.4f));
+            var root = CreateStationRoot("Refrigerator Station", new Vector3(4.85f, 0, 3.45f), new Vector3(1.9f, 2.9f, 1.5f));
             AddModel(model, "Refrigerator Visual", Vector3.zero, Quaternion.Euler(0, 180, 0), Vector3.one, root.transform);
             var station = root.AddComponent<RefrigeratorStation>();
             station.factory = factory;
-            CreateWorldText(root.transform, "Ingredient Menu", new Vector3(0, 3.15f, 0), "<b>FRIDGE</b>\n1 Veg   2 Cheese   3 Meat", 32, new Vector2(720, 150));
+            CreateWorldText(root.transform, "Fridge Label", new Vector3(0, 3.15f, 0), "<b>FRIDGE</b>\nE: Browse   1/2/3: Quick pick", 38, new Vector2(720, 150));
             return station;
         }
 
-        private static ChoppingTableStation CreateTable(GameObject model)
+        private static ChoppingTableStation CreateChoppingTable(GameObject model)
         {
-            var root = CreateStationRoot("Chopping Table Station", new Vector3(1.65f, 0, 2.35f), new Vector3(2.6f, 1.5f, 1.5f));
-            AddModel(model, "Table Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            var anchor = new GameObject("Ingredient Anchor").transform;
-            anchor.SetParent(root.transform, false);
-            anchor.localPosition = new Vector3(0, 1.28f, 0);
+            var root = CreateStationRoot("Chopping Table Station", new Vector3(1.6f, 0, 2.45f), new Vector3(2.6f, 1.5f, 1.5f));
+            AddModel(model, "Chopping Table Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
+            var anchor = CreatePoint(root.transform, "Ingredient Anchor", new Vector3(1.6f, 1.28f, 2.45f));
             var station = root.AddComponent<ChoppingTableStation>();
             station.itemAnchor = anchor;
-            station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 2.12f, 0), "<b>CHOPPING TABLE</b>\nEmpty", 30, new Vector2(650, 140));
-            station.progressFill = CreateWorldProgressBar(root.transform, "Chopping Progress", new Vector3(0, 1.83f, 0), 620);
+            station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 2.3f, 0), "<b>CHOPPING TABLE</b>\nEmpty", 38, new Vector2(700, 160));
+            station.progressFill = CreateWorldProgressBar(root.transform, "Chopping Progress", new Vector3(0, 1.98f, 0), 650);
             return station;
         }
 
-        private static StoveStation CreateStove(GameObject model)
+        private static StoveStation CreateStove(string name, Vector3 position, IReadOnlyDictionary<string, GameObject> models)
         {
-            var root = CreateStationRoot("Stove Station", new Vector3(1.65f, 0, -0.2f), new Vector3(2.6f, 1.6f, 1.7f));
-            AddModel(model, "Stove Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            var anchors = new Transform[2];
-            for (var i = 0; i < 2; i++)
-            {
-                anchors[i] = new GameObject($"Stove Slot {i + 1}").transform;
-                anchors[i].SetParent(root.transform, false);
-                anchors[i].localPosition = new Vector3(i == 0 ? -0.58f : 0.58f, 1.38f, 0);
-            }
+            var root = CreateStationRoot(name, position, new Vector3(2.05f, 1.7f, 1.6f));
+            AddModel(models["ChoppingTable"], name + " Table", Vector3.zero, Quaternion.identity, new Vector3(0.78f, 0.9f, 0.82f), root.transform);
+            AddModel(models["SingleStove"], name + " Hotplate", new Vector3(0, 1.0f, 0), Quaternion.identity, Vector3.one * 0.82f, root.transform);
+            var anchor = CreatePoint(root.transform, "Cooking Anchor", position + new Vector3(0, 1.68f, 0));
+
             var station = root.AddComponent<StoveStation>();
-            station.slotAnchors = anchors;
-            station.statusText = CreateWorldText(root.transform, "Stove Status", new Vector3(0, 2.15f, 0), "<b>STOVE</b>\n1: Empty   2: Empty", 30, new Vector2(650, 140));
-            station.progressFills = new[]
-            {
-                CreateWorldProgressBar(root.transform, "Stove Slot 1 Progress", new Vector3(-0.72f, 1.86f, 0), 285),
-                CreateWorldProgressBar(root.transform, "Stove Slot 2 Progress", new Vector3(0.72f, 1.86f, 0), 285)
-            };
+            station.itemAnchor = anchor;
+            station.statusText = CreateWorldText(root.transform, name + " Status", new Vector3(0, 2.72f, 0), $"<b>{name.ToUpperInvariant()}</b>\nEmpty", 38, new Vector2(620, 150));
+            station.progressFill = CreateWorldProgressBar(root.transform, name + " Progress", new Vector3(0, 2.42f, 0), 570);
+            CreateStoveEffects(root.transform, new Vector3(0, 1.58f, 0), station);
             return station;
+        }
+
+        private static void CreateStoveEffects(Transform parent, Vector3 localPosition, StoveStation station)
+        {
+            var effects = new GameObject("Flame Effects");
+            effects.transform.SetParent(parent, false);
+            effects.transform.localPosition = localPosition;
+            var particles = effects.AddComponent<ParticleSystem>();
+            var main = particles.main;
+            main.loop = true;
+            main.startLifetime = 0.45f;
+            main.startSpeed = 0.55f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.10f, 0.22f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.18f, 0.02f), new Color(1f, 0.75f, 0.08f));
+            main.maxParticles = 40;
+            var emission = particles.emission;
+            emission.rateOverTime = 18f;
+            var shape = particles.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 18f;
+            shape.radius = 0.34f;
+            var particleRenderer = effects.GetComponent<ParticleSystemRenderer>();
+            particleRenderer.sharedMaterial = GetOrCreateParticleMaterial();
+            var meshSource = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            particleRenderer.renderMode = ParticleSystemRenderMode.Mesh;
+            particleRenderer.mesh = meshSource.GetComponent<MeshFilter>().sharedMesh;
+            Object.DestroyImmediate(meshSource);
+            particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var light = effects.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.28f, 0.04f);
+            light.range = 4f;
+            light.enabled = false;
+            station.flameParticles = particles;
+            station.cookingLight = light;
         }
 
         private static TrashStation CreateTrash(GameObject model)
         {
-            var root = CreateStationRoot("Trash Station", new Vector3(5.45f, 0, -3.35f), new Vector3(1.5f, 1.5f, 1.5f));
+            var root = CreateStationRoot("Trash Station", new Vector3(4.9f, 0, -3.6f), new Vector3(1.5f, 1.5f, 1.5f));
             AddModel(model, "Trash Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            CreateWorldText(root.transform, "Trash Label", new Vector3(0, 1.75f, 0), "<b>TRASH</b>", 30, new Vector2(360, 80));
+            CreateWorldText(root.transform, "Trash Label", new Vector3(0, 1.82f, 0), "<b>TRASH</b>\nDiscard any item", 36, new Vector2(460, 120));
             return root.AddComponent<TrashStation>();
         }
 
-        private static List<CustomerWindow> CreateWindows(GameObject model)
+        private static List<CustomerWindow> CreateCustomerTables(IReadOnlyDictionary<string, GameObject> models)
         {
             var result = new List<CustomerWindow>();
             var positions = new[] { -3.55f, -1.2f, 1.2f, 3.55f };
-            for (var i = 0; i < positions.Length; i++)
+            for (var index = 0; index < positions.Length; index++)
             {
-                var root = CreateStationRoot($"Customer Window {i + 1}", new Vector3(-6.25f, 0, positions[i]), new Vector3(1.4f, 2.8f, 2.15f));
-                AddModel(model, "Window Visual", Vector3.zero, Quaternion.Euler(0, 90, 0), new Vector3(0.82f, 0.82f, 0.82f), root.transform);
+                var z = positions[index];
+                var root = CreateStationRoot($"Serving Table {index + 1}", new Vector3(-5.35f, 0, z), new Vector3(1.35f, 1.5f, 1.75f));
+                AddModel(models["ChoppingTable"], "Serving Table Visual", Vector3.zero, Quaternion.Euler(0, 90, 0), new Vector3(0.62f, 0.78f, 0.75f), root.transform);
+
+                var customerRoot = new GameObject("Customer").transform;
+                customerRoot.SetParent(root.transform);
+                customerRoot.position = new Vector3(-6.75f, 0, z);
+                AddModel(models["Customer"], "Customer Visual", Vector3.zero, Quaternion.Euler(0, 90, 0), Vector3.one * 0.85f, customerRoot);
+                var avatar = customerRoot.gameObject.AddComponent<CustomerAvatar>();
+
+                var spawnZ = index % 2 == 0 ? 12f : -12f;
+                var exitZ = -spawnZ;
                 var window = root.AddComponent<CustomerWindow>();
-                window.orderText = CreateWorldText(root.transform, "Order Display", new Vector3(1.05f, 2.85f, 0), "ORDER", 30, new Vector2(740, 155));
-                window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(1.05f, 3.55f, 0), string.Empty, 42, new Vector2(360, 90));
+                window.customerRoot = customerRoot;
+                window.avatar = avatar;
+                window.spawnPoint = CreatePoint(root.transform, "Spawn Point", new Vector3(-9.2f, 0, spawnZ));
+                window.roadPoint = CreatePoint(root.transform, "Road Turn", new Vector3(-9.2f, 0, z));
+                window.servicePoint = CreatePoint(root.transform, "Customer Service Point", new Vector3(-6.75f, 0, z));
+                window.exitPoint = CreatePoint(root.transform, "Exit Point", new Vector3(-9.2f, 0, exitZ));
+                window.orderText = CreateWorldText(root.transform, "Table Order Card", new Vector3(0.3f, 2.15f, 0), "ORDER", 40, new Vector2(720, 165));
+                window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(0.3f, 3.05f, 0), string.Empty, 52, new Vector2(420, 100));
+                window.dialogueText = CreateCloudText(root.transform, "Customer Dialogue", new Vector3(0.25f, 3.05f, 0), "Welcome!", 34, new Vector2(540, 180));
+                window.dialogueBubble = window.dialogueText.transform.parent.gameObject;
                 result.Add(window);
             }
             return result;
         }
 
-        private static (TMP_Text timer, TMP_Text score, TMP_Text highScore, TMP_Text heldItem, TMP_Text prompt, GameObject instructions,
-            GameObject pause, GameObject results, TMP_Text resultScore, TMP_Text newHighScore, Button startButton,
-            Button pauseButton, Button resumeButton, Button restartButton, Button quitButton) CreateScreenUi()
+        private static (CinemachineVirtualCamera virtualCamera, AdaptiveCinemachineCamera controller) CreateCinemachineCamera(PlayerController player)
+        {
+            var cameraObject = new GameObject("Main Camera");
+            cameraObject.tag = "MainCamera";
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = false;
+            camera.fieldOfView = 48f;
+            camera.nearClipPlane = 0.15f;
+            camera.farClipPlane = 120f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.34f, 0.62f, 0.76f);
+            cameraObject.AddComponent<CinemachineBrain>();
+
+            var virtualCameraObject = new GameObject("CM Player Follow Camera");
+            var virtualCamera = virtualCameraObject.AddComponent<CinemachineVirtualCamera>();
+            virtualCamera.Follow = player.transform;
+            virtualCamera.LookAt = null;
+            virtualCamera.m_Lens.FieldOfView = 48f;
+            virtualCamera.m_Lens.NearClipPlane = 0.15f;
+            virtualCamera.m_Lens.FarClipPlane = 120f;
+            virtualCamera.transform.position = player.transform.position + new Vector3(0, 11.5f, -3.8f);
+            virtualCamera.transform.rotation = Quaternion.Euler(72f, 0f, 0f);
+            var framing = virtualCamera.AddCinemachineComponent<CinemachineFramingTransposer>();
+            framing.m_CameraDistance = 12f;
+            framing.m_TrackedObjectOffset = new Vector3(0, 0.9f, 0);
+            framing.m_XDamping = 0.45f;
+            framing.m_YDamping = 0.45f;
+            framing.m_ZDamping = 0.45f;
+            framing.m_ScreenX = 0.5f;
+            framing.m_ScreenY = 0.48f;
+
+            var controller = virtualCameraObject.AddComponent<AdaptiveCinemachineCamera>();
+            controller.virtualCamera = virtualCamera;
+            controller.player = player;
+            return (virtualCamera, controller);
+        }
+
+        private static (TMP_Text timer, TMP_Text score, TMP_Text highScore, TMP_Text heldItem, Image heldColor,
+            TMP_Text prompt, GameObject controlsStrip, GameObject instructions, GameObject pause, GameObject results,
+            TMP_Text resultScore, TMP_Text newHighScore, Button startButton, Button pauseButton, Button resumeButton,
+            Button restartButton, Button quitButton, FridgeMenuController fridgeMenu) CreateScreenUi(
+                RefrigeratorStation refrigerator, PlayerController player)
         {
             var canvasObject = new GameObject("Game UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = Camera.main;
-            canvas.planeDistance = 1f;
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
-
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
-            var score = CreateScreenText(canvas.transform, "Score", "SCORE  0", 38, TextAlignmentOptions.Left,
-                new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -24), new Vector2(350, 70));
-            var highScore = CreateScreenText(canvas.transform, "High Score", "BEST  0", 28, TextAlignmentOptions.Left,
-                new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -86), new Vector2(350, 55));
-            var heldItem = CreateScreenText(canvas.transform, "Held Item", "HANDS  <color=#9AA3A8>EMPTY</color>", 27, TextAlignmentOptions.Left,
-                new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -137), new Vector2(520, 55));
-            var timer = CreateScreenText(canvas.transform, "Timer", "03:00", 52, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -28), new Vector2(300, 80));
-            var prompt = CreateScreenText(canvas.transform, "Interaction Prompt", string.Empty, 32, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 42), new Vector2(1100, 70));
+            var hudPanel = CreateAnchoredPanel(canvas.transform, "Score HUD", new Vector2(0, 1), new Vector2(24, -24), new Vector2(390, 180), new Vector2(0, 1));
+            var score = CreateScreenText(hudPanel.transform, "Score", "SCORE  0", 38, TextAlignmentOptions.Left,
+                new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -16), new Vector2(340, 52));
+            var highScore = CreateScreenText(hudPanel.transform, "High Score", "BEST  0", 27, TextAlignmentOptions.Left,
+                new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -66), new Vector2(340, 45));
+            var heldColor = CreateColorSwatch(hudPanel.transform, new Vector2(24, -126));
+            var heldItem = CreateScreenText(hudPanel.transform, "Held Item", "HANDS  EMPTY", 26, TextAlignmentOptions.Left,
+                new Vector2(0, 1), new Vector2(0, 1), new Vector2(70, -116), new Vector2(290, 46));
 
-            AddTextBackdrop(score.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
-            AddTextBackdrop(highScore.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
-            AddTextBackdrop(heldItem.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
-            AddTextBackdrop(timer.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
-            AddTextBackdrop(prompt.rectTransform, new Color(0.03f, 0.04f, 0.05f, 0.84f));
+            var timerPanel = CreateAnchoredPanel(canvas.transform, "Timer HUD", new Vector2(0.5f, 1), new Vector2(0, -24), new Vector2(280, 88), new Vector2(0.5f, 1));
+            var timer = CreateScreenText(timerPanel.transform, "Timer", "03:00", 52, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(250, 75));
 
-            var pauseButton = CreateButton(canvas.transform, "Pause Button", "PAUSE", new Vector2(1, 1), new Vector2(-180, -42), new Vector2(150, 54));
-            var quitButton = CreateButton(canvas.transform, "Quit Button", "QUIT", new Vector2(1, 1), new Vector2(-28, -42), new Vector2(120, 54));
+            var pauseButton = CreateButton(canvas.transform, "Pause Button", "PAUSE", new Vector2(1, 1), new Vector2(-180, -32), new Vector2(150, 58));
+            var quitButton = CreateButton(canvas.transform, "Quit Button", "QUIT", new Vector2(1, 1), new Vector2(-24, -32), new Vector2(130, 58));
 
-            var instructions = CreatePanel(canvas.transform, "Instructions Panel", new Vector2(760, 610));
-            CreateScreenText(instructions.transform, "Title", "YES CHEF!", 72, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -48), new Vector2(650, 100), Tomato);
-            CreateScreenText(instructions.transform, "Subtitle", "Three minutes. Four hungry customers. One chef.", 28, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -145), new Vector2(680, 55), Cream);
-            CreateScreenText(instructions.transform, "Controls",
-                "<b>WASD / Arrow Keys</b>  Move\n<b>E</b>  Interact / pick up / place / deliver\n<b>1 / 2 / 3</b>  Choose Vegetable / Cheese / Meat at fridge\n<b>Esc</b>  Pause\n\nVegetables: chop 2s   |   Meat: cook 6s   |   Cheese: ready now",
-                29, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -30), new Vector2(680, 285), Cream);
-            var startButton = CreateButton(instructions.transform, "Start Button", "START COOKING", new Vector2(0.5f, 0), new Vector2(0, 52), new Vector2(310, 72));
+            var controlsStrip = CreateAnchoredPanel(canvas.transform, "Controls Strip", new Vector2(0.5f, 0), new Vector2(0, 18), new Vector2(1250, 92), new Vector2(0.5f, 0));
+            CreateScreenText(controlsStrip.transform, "Controls", "<b>WASD / ARROWS</b> Move     <b>E</b> Interact     <b>1 / 2 / 3</b> Quick fridge pick     <b>ESC</b> Pause",
+                25, TextAlignmentOptions.Center, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 8), new Vector2(1200, 38));
+            var prompt = CreateScreenText(controlsStrip.transform, "Context Guidance", "NEXT: Visit the fridge", 30, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -5), new Vector2(1200, 46), new Color(1f, 0.78f, 0.20f));
 
-            var pause = CreatePanel(canvas.transform, "Pause Panel", new Vector2(520, 330));
-            CreateScreenText(pause.transform, "Paused", "PAUSED", 64, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -55), new Vector2(440, 100), Tomato);
-            var resumeButton = CreateButton(pause.transform, "Resume Button", "RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -20), new Vector2(260, 68));
+            var fridgeMenu = CreateFridgeMenu(canvas.transform, refrigerator, player);
 
-            var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(600, 470));
-            CreateScreenText(results.transform, "Game Over", "SERVICE OVER!", 58, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -48), new Vector2(520, 90), Tomato);
-            var newHighScore = CreateScreenText(results.transform, "New High Score", string.Empty, 34, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -140), new Vector2(520, 60), new Color(1f, 0.78f, 0.2f));
-            var resultScore = CreateScreenText(results.transform, "Result Score", "Final score: 0", 36, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -15), new Vector2(520, 120), Cream);
-            var restartButton = CreateButton(results.transform, "Restart Button", "PLAY AGAIN", new Vector2(0.5f, 0), new Vector2(0, 48), new Vector2(260, 68));
+            var instructions = CreatePanel(canvas.transform, "Instructions Panel", new Vector2(900, 700));
+            CreateScreenText(instructions.transform, "Title", "YES CHEF!", 76, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -42), new Vector2(780, 100), Tomato);
+            CreateScreenText(instructions.transform, "Subtitle", "Top-down kitchen service - three minutes, four tables", 31, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -140), new Vector2(800, 55), Cream);
+            CreateScreenText(instructions.transform, "How To Play",
+                "<b>1.</b> Visit the fridge and press <b>E</b> to browse, click an item, or use 1 / 2 / 3.\n" +
+                "<b>2.</b> Chop raw vegetables for 2s. Cook raw meat on either stove for 6s. Cheese is ready.\n" +
+                "<b>3.</b> Carry only one item and serve it at the matching named customer table.\n" +
+                "<b>4.</b> Faster orders score more. Wrong items stay in your hands; trash unwanted items.\n\n" +
+                "The bottom bar always tells you the controls and your best next action.",
+                28, TextAlignmentOptions.Left, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -20), new Vector2(760, 350), Cream);
+            var startButton = CreateButton(instructions.transform, "Start Button", "START COOKING", new Vector2(0.5f, 0), new Vector2(0, 48), new Vector2(330, 76));
 
+            var pause = CreatePanel(canvas.transform, "Pause Panel", new Vector2(540, 350));
+            CreateScreenText(pause.transform, "Paused", "PAUSED", 66, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -55), new Vector2(460, 100), Tomato);
+            var resumeButton = CreateButton(pause.transform, "Resume Button", "RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -25), new Vector2(270, 72));
+
+            var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(620, 480));
+            CreateScreenText(results.transform, "Game Over", "SERVICE OVER!", 60, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -48), new Vector2(540, 90), Tomato);
+            var newHighScore = CreateScreenText(results.transform, "New High Score", string.Empty, 35, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -145), new Vector2(540, 60), new Color(1f, 0.78f, 0.2f));
+            var resultScore = CreateScreenText(results.transform, "Result Score", "Final score: 0", 38, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -15), new Vector2(540, 120), Cream);
+            var restartButton = CreateButton(results.transform, "Restart Button", "PLAY AGAIN", new Vector2(0.5f, 0), new Vector2(0, 48), new Vector2(270, 72));
+
+            controlsStrip.SetActive(false);
             pause.SetActive(false);
             results.SetActive(false);
-            return (timer, score, highScore, heldItem, prompt, instructions, pause, results, resultScore, newHighScore,
-                startButton, pauseButton, resumeButton, restartButton, quitButton);
+            return (timer, score, highScore, heldItem, heldColor, prompt, controlsStrip, instructions, pause, results,
+                resultScore, newHighScore, startButton, pauseButton, resumeButton, restartButton, quitButton, fridgeMenu);
+        }
+
+        private static FridgeMenuController CreateFridgeMenu(Transform canvas, RefrigeratorStation refrigerator, PlayerController player)
+        {
+            var panel = CreateAnchoredPanel(canvas, "Fridge Catalogue", new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(430, 590), new Vector2(1, 0.5f));
+            CreateScreenText(panel.transform, "Title", "FRIDGE", 46, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(370, 65), Tomato);
+            CreateScreenText(panel.transform, "Hint", "Click an ingredient to take it", 22, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -82), new Vector2(370, 42));
+
+            var scrollObject = new GameObject("Scrollable Ingredient List", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
+            scrollObject.transform.SetParent(panel.transform, false);
+            var scrollRectTransform = scrollObject.GetComponent<RectTransform>();
+            scrollRectTransform.anchorMin = scrollRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            scrollRectTransform.sizeDelta = new Vector2(380, 390);
+            scrollRectTransform.anchoredPosition = new Vector2(0, -30);
+            scrollObject.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.04f, 0.55f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollObject.transform, false);
+            StretchToParent(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = Color.white;
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0, 1);
+            contentRect.anchorMax = new Vector2(1, 1);
+            contentRect.pivot = new Vector2(0.5f, 1);
+            contentRect.sizeDelta = new Vector2(0, 0);
+            var layout = content.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(12, 12, 12, 12);
+            layout.spacing = 12;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childControlHeight = false;
+            layout.childControlWidth = true;
+            content.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var vegetable = CreateCatalogueButton(content.transform, "Vegetable", "VEGETABLE", "Raw - chop for 2 seconds", IngredientRules.Color(IngredientType.Vegetable));
+            var cheese = CreateCatalogueButton(content.transform, "Cheese", "CHEESE", "Ready to serve immediately", IngredientRules.Color(IngredientType.Cheese));
+            var meat = CreateCatalogueButton(content.transform, "Meat", "MEAT", "Raw - cook for 6 seconds", IngredientRules.Color(IngredientType.Meat));
+
+            var scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f;
+
+            var close = CreateButton(panel.transform, "Close", "CLOSE", new Vector2(0.5f, 0), new Vector2(0, 24), new Vector2(180, 58));
+            var controller = canvas.gameObject.AddComponent<FridgeMenuController>();
+            controller.panel = panel;
+            controller.refrigerator = refrigerator;
+            controller.player = player;
+            UnityEventTools.AddPersistentListener(vegetable.onClick, controller.TakeVegetable);
+            UnityEventTools.AddPersistentListener(cheese.onClick, controller.TakeCheese);
+            UnityEventTools.AddPersistentListener(meat.onClick, controller.TakeMeat);
+            UnityEventTools.AddPersistentListener(close.onClick, controller.Close);
+            panel.SetActive(false);
+            return controller;
+        }
+
+        private static Button CreateCatalogueButton(Transform parent, string name, string title, string description, Color color)
+        {
+            var buttonObject = new GameObject(name + " Button", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+            buttonObject.transform.SetParent(parent, false);
+            buttonObject.GetComponent<LayoutElement>().preferredHeight = 112;
+            buttonObject.GetComponent<Image>().color = new Color(color.r * 0.42f, color.g * 0.42f, color.b * 0.42f, 0.98f);
+            var button = buttonObject.GetComponent<Button>();
+            CreateScreenText(buttonObject.transform, "Title", title, 31, TextAlignmentOptions.Left,
+                new Vector2(0, 1), new Vector2(0, 1), new Vector2(22, -14), new Vector2(300, 42), Color.white).raycastTarget = false;
+            CreateScreenText(buttonObject.transform, "Description", description, 20, TextAlignmentOptions.Left,
+                new Vector2(0, 0), new Vector2(0, 0), new Vector2(22, 13), new Vector2(330, 34), Cream).raycastTarget = false;
+            return button;
+        }
+
+        private static Image CreateColorSwatch(Transform parent, Vector2 position)
+        {
+            var swatch = new GameObject("Held Item Artwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            swatch.transform.SetParent(parent, false);
+            var rect = swatch.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
+            rect.pivot = new Vector2(0, 1);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(34, 34);
+            var image = swatch.GetComponent<Image>();
+            image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            image.color = new Color(0.25f, 0.28f, 0.30f, 0.7f);
+            return image;
+        }
+
+        private static TMP_Text CreateCloudText(Transform parent, string name, Vector3 localPosition, string value, float fontSize, Vector2 size)
+        {
+            var text = CreateWorldText(parent, name, localPosition, value, fontSize, size, Color.white, Ink);
+            var canvas = text.transform.parent;
+            var sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            foreach (var data in new[]
+                     {
+                         (new Vector2(-size.x * 0.42f, -size.y * 0.35f), 58f),
+                         (new Vector2(-size.x * 0.28f, -size.y * 0.50f), 38f),
+                         (new Vector2(-size.x * 0.18f, -size.y * 0.62f), 24f)
+                     })
+            {
+                var puff = new GameObject("Cloud Puff", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                puff.transform.SetParent(canvas, false);
+                puff.transform.SetSiblingIndex(0);
+                var rect = puff.GetComponent<RectTransform>();
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = data.Item1;
+                rect.sizeDelta = Vector2.one * data.Item2;
+                puff.GetComponent<Image>().sprite = sprite;
+                puff.GetComponent<Image>().color = Color.white;
+            }
+            return text;
+        }
+
+        private static TMP_Text CreateWorldText(Transform parent, string name, Vector3 localPosition, string value, float fontSize,
+            Vector2 size, Color? background = null, Color? textColor = null)
+        {
+            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard));
+            canvasObject.transform.SetParent(parent, false);
+            canvasObject.transform.localPosition = localPosition;
+            canvasObject.transform.localScale = Vector3.one * 0.0042f;
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 10;
+            canvasObject.GetComponent<RectTransform>().sizeDelta = size;
+
+            var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            backdrop.transform.SetParent(canvasObject.transform, false);
+            StretchToParent(backdrop.GetComponent<RectTransform>());
+            var backdropImage = backdrop.GetComponent<Image>();
+            backdropImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            backdropImage.type = Image.Type.Sliced;
+            backdropImage.color = background ?? new Color(0.03f, 0.04f, 0.05f, 0.94f);
+
+            var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(canvasObject.transform, false);
+            var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = defaultFont;
+            text.text = value;
+            text.fontSize = fontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = textColor ?? Cream;
+            text.richText = true;
+            text.enableWordWrapping = true;
+            StretchToParent(text.rectTransform);
+            text.rectTransform.offsetMin = new Vector2(18, 12);
+            text.rectTransform.offsetMax = new Vector2(-18, -12);
+            return text;
         }
 
         private static Image CreateWorldProgressBar(Transform parent, string name, Vector3 localPosition, float width)
@@ -345,39 +661,28 @@ namespace YesChef.Editor
             var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard));
             canvasObject.transform.SetParent(parent, false);
             canvasObject.transform.localPosition = localPosition;
-            canvasObject.transform.localScale = Vector3.one * 0.0045f;
-            var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.sortingOrder = 6;
-            canvasObject.GetComponent<RectTransform>().sizeDelta = new Vector2(width, 30);
+            canvasObject.transform.localScale = Vector3.one * 0.0042f;
+            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvasObject.GetComponent<Canvas>().sortingOrder = 11;
+            canvasObject.GetComponent<RectTransform>().sizeDelta = new Vector2(width, 32);
 
             var background = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             background.transform.SetParent(canvasObject.transform, false);
             StretchToParent(background.GetComponent<RectTransform>());
-            background.GetComponent<Image>().color = new Color(0.03f, 0.04f, 0.05f, 0.92f);
+            background.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.04f, 0.95f);
 
             var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             fillObject.transform.SetParent(canvasObject.transform, false);
-            var fillRect = fillObject.GetComponent<RectTransform>();
-            StretchToParent(fillRect);
-            fillRect.offsetMin = new Vector2(4, 4);
-            fillRect.offsetMax = new Vector2(-4, -4);
+            StretchToParent(fillObject.GetComponent<RectTransform>());
+            fillObject.GetComponent<RectTransform>().offsetMin = new Vector2(4, 4);
+            fillObject.GetComponent<RectTransform>().offsetMax = new Vector2(-4, -4);
             var fill = fillObject.GetComponent<Image>();
             fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             fill.color = new Color(0.35f, 0.9f, 0.42f, 1f);
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillOrigin = 0;
             fill.fillAmount = 0f;
             return fill;
-        }
-
-        private static void StretchToParent(RectTransform rect)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
         }
 
         private static GameObject CreateStationRoot(string name, Vector3 position, Vector3 colliderSize)
@@ -390,6 +695,14 @@ namespace YesChef.Editor
             return root;
         }
 
+        private static Transform CreatePoint(Transform parent, string name, Vector3 worldPosition)
+        {
+            var point = new GameObject(name).transform;
+            point.SetParent(parent);
+            point.position = worldPosition;
+            return point;
+        }
+
         private static void CreateBoundary(string name, Vector3 position, Vector3 size, Transform parent)
         {
             var boundary = new GameObject(name);
@@ -398,66 +711,90 @@ namespace YesChef.Editor
             boundary.AddComponent<BoxCollider>().size = size;
         }
 
-        private static GameObject AddModel(GameObject prefab, string name, Vector3 localPosition, Quaternion localRotation, Vector3 localScale, Transform parent)
+        private static GameObject AddModel(GameObject prefab, string name, Vector3 position, Quaternion rotation, Vector3 scale,
+            Transform parent, bool worldSpace = false)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             instance.name = name;
             instance.transform.SetParent(parent, false);
-            instance.transform.localPosition = localPosition;
-            instance.transform.localRotation = localRotation;
-            instance.transform.localScale = localScale;
+            if (worldSpace)
+            {
+                instance.transform.position = position;
+                instance.transform.rotation = rotation * Quaternion.Euler(-90f, 0f, 0f);
+            }
+            else
+            {
+                instance.transform.localPosition = position;
+                instance.transform.localRotation = rotation * Quaternion.Euler(-90f, 0f, 0f);
+            }
+            instance.transform.localScale = scale;
             foreach (var collider in instance.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(collider);
             return instance;
         }
 
-        private static TMP_Text CreateWorldText(Transform parent, string name, Vector3 localPosition, string value, float fontSize, Vector2 size)
+        private static void CreateVisualBox(string name, Vector3 position, Vector3 size, Material material, Transform parent)
         {
-            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard));
-            canvasObject.transform.SetParent(parent, false);
-            canvasObject.transform.localPosition = localPosition;
-            canvasObject.transform.localScale = Vector3.one * 0.0045f;
-            var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.sortingOrder = 5;
-            var rect = canvasObject.GetComponent<RectTransform>();
-            rect.sizeDelta = size;
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = name;
+            visual.transform.SetParent(parent);
+            visual.transform.position = position;
+            visual.transform.localScale = size;
+            Object.DestroyImmediate(visual.GetComponent<Collider>());
+            visual.GetComponent<Renderer>().sharedMaterial = material;
+        }
 
-            var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            backdrop.transform.SetParent(canvasObject.transform, false);
-            var backdropRect = backdrop.GetComponent<RectTransform>();
-            backdropRect.anchorMin = Vector2.zero;
-            backdropRect.anchorMax = Vector2.one;
-            backdropRect.offsetMin = Vector2.zero;
-            backdropRect.offsetMax = Vector2.zero;
-            backdrop.GetComponent<Image>().color = new Color(0.03f, 0.04f, 0.05f, 0.88f);
+        private static Material GetOrCreateMaterial(string name, Color color)
+        {
+            var path = $"Assets/Materials/{name.Replace(' ', '_')}.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                material = new Material(Shader.Find("Standard")) { name = name };
+                AssetDatabase.CreateAsset(material, path);
+            }
+            material.color = color;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
 
-            var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            textObject.transform.SetParent(canvasObject.transform, false);
-            var text = textObject.GetComponent<TextMeshProUGUI>();
-            text.font = defaultFont;
-            text.text = value;
-            text.fontSize = fontSize;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Cream;
-            text.richText = true;
-            text.enableWordWrapping = false;
-            var textRect = text.rectTransform;
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(12, 8);
-            textRect.offsetMax = new Vector2(-12, -8);
-            return text;
+        private static Material InkMaterial() => GetOrCreateMaterial("Deep Ink", Ink);
+        private static Material CreamMaterial() => GetOrCreateMaterial("Warm Cream", Cream);
+
+        private static Material GetOrCreateParticleMaterial()
+        {
+            const string path = "Assets/Materials/Stove_Flame.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            var shader = Shader.Find("Particles/Standard Unlit");
+            if (shader == null) throw new MissingReferenceException("Unity's Particles/Standard Unlit shader is unavailable.");
+            if (material == null)
+            {
+                material = new Material(shader) { name = "Stove Flame" };
+                AssetDatabase.CreateAsset(material, path);
+            }
+            material.shader = shader;
+            material.color = new Color(1f, 0.28f, 0.02f, 0.9f);
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         private static GameObject CreatePanel(Transform parent, string name, Vector2 size)
         {
+            return CreateAnchoredPanel(parent, name, new Vector2(0.5f, 0.5f), Vector2.zero, size, new Vector2(0.5f, 0.5f));
+        }
+
+        private static GameObject CreateAnchoredPanel(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, Vector2 pivot)
+        {
             var panel = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             panel.transform.SetParent(parent, false);
             var rect = panel.GetComponent<RectTransform>();
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = pivot;
+            rect.anchoredPosition = position;
             rect.sizeDelta = size;
-            panel.GetComponent<Image>().color = Panel;
+            var image = panel.GetComponent<Image>();
+            image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            image.type = Image.Type.Sliced;
+            image.color = Panel;
             return panel;
         }
 
@@ -470,10 +807,10 @@ namespace YesChef.Editor
             text.font = defaultFont;
             text.text = value;
             text.fontSize = fontSize;
-            text.fontStyle = FontStyles.Normal;
             text.alignment = alignment;
             text.color = color ?? Cream;
             text.richText = true;
+            text.enableWordWrapping = true;
             var rect = text.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;
             rect.pivot = pivot;
@@ -492,32 +829,27 @@ namespace YesChef.Editor
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
             var image = buttonObject.GetComponent<Image>();
+            image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            image.type = Image.Type.Sliced;
             image.color = Tomato;
             var button = buttonObject.GetComponent<Button>();
             var colors = button.colors;
             colors.normalColor = Tomato;
-            colors.highlightedColor = new Color(1f, 0.34f, 0.22f);
-            colors.pressedColor = new Color(0.72f, 0.10f, 0.08f);
+            colors.highlightedColor = new Color(1f, 0.38f, 0.24f);
+            colors.pressedColor = new Color(0.68f, 0.08f, 0.06f);
             button.colors = colors;
-
             var text = CreateScreenText(buttonObject.transform, "Label", label, 26, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size, Color.white);
             text.raycastTarget = false;
             return button;
         }
 
-        private static void AddTextBackdrop(RectTransform target, Color color)
+        private static void StretchToParent(RectTransform rect)
         {
-            var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            backdrop.transform.SetParent(target.parent, false);
-            backdrop.transform.SetSiblingIndex(target.GetSiblingIndex());
-            var rect = backdrop.GetComponent<RectTransform>();
-            rect.anchorMin = target.anchorMin;
-            rect.anchorMax = target.anchorMax;
-            rect.pivot = target.pivot;
-            rect.anchoredPosition = target.anchoredPosition;
-            rect.sizeDelta = target.sizeDelta + new Vector2(30, 10);
-            backdrop.GetComponent<Image>().color = color;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
     }
 }

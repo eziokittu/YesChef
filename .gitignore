@@ -76,3 +76,12 @@ Desktop.ini
 
 # Hiring-test source document (keep locally, do not redistribute)
 New_Developer_Test.pdf
+
+# Local tooling and scratch metadata
+/.codex/
+/.openai/
+/.claude/
+/AGENTS.md
+*.prompt.md
+/.codex-validation-path
+/YesChef_*_Verification.png
