@@ -1,0 +1,49 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Asset Store Tools
+/[Aa]ssets/AssetStoreTools*
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity crash and diagnostic files
+sysinfo.txt
+crashlytics-build.properties
+
+# Builds and packaged applications
+*.apk
+*.aab
+*.app
+*.unitypackage
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Hiring-test source document (keep locally, do not redistribute)
+New_Developer_Test.pdf
