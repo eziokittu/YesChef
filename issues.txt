@@ -24,7 +24,7 @@ IMPLEMENTATION STATUS - 2026-09-10
 8. Implemented: opaque unified cloud silhouette without translucent overlap lines, six-second dialogue display, and smaller order cards.
 9. Implemented: separate clickable credits on instructions, pause, quit confirmation, and results screens.
 10. Implemented: named arm/leg parts now animate with subtle idle sway and stronger alternating walk motion in addition to breathing/bobbing.
-11. Implemented: hinged trash lid; pooled/lifetime-bounded crumb, meat, chopping, ant, and fly particles; 50% meat/cheese spill chance; delayed rat visit; delayed trash insects.
+11. Implemented, with the former visitor behavior superseded by item 32: hinged trash lid; pooled/lifetime-bounded crumb, meat, chopping, ant, and fly particles; 50% meat/cheese spill chance; delayed trash insects.
 12. Implemented: larger rules card, color-coded step icons, concise grouped rules, and clearer controls hierarchy.
 
 Verification boundary:
@@ -72,7 +72,7 @@ IMPLEMENTATION STATUS - PROGRESS 4 - 2026-09-10
 
 17. Implemented: fish, snake, frog, and butterfly visuals and motion components are no longer created in the Kitchen scene. Their optional marsh audio slots remain available for future clips.
 18. Implemented: each of the two south and two east windows now owns a separate daylight spotlight. Four additional warm spotlights point from the kitchen through the matching panes at night. The two groups cross-fade with the existing day/night timeline.
-19. Implemented and runtime-verified: only a successful cheese spill schedules the rat. After 2-3 seconds it appears from one randomly selected kitchen corner, travels to the crumbs, eats, and returns to that same corner.
+19. Superseded by item 32 after the design changed.
 20. Fixed and runtime-verified: all six micro-effect particle systems disable play-on-awake and reset clear. Chopping/stove particles begin only with station activity. The first trash discard schedules ground-hugging red ants and small orbiting/noisy black flies after 5-6 seconds.
 21. Updated and visibly reviewed: the kitchen now has a generic centered 9-by-7 checker-tile floor mirrored across both axes, with a uniform perimeter border. Wall wainscot, rails, and repeating motifs remain.
 22. Implemented: each marsh facet now has a stronger phase-offset vertical wave plus gentle tilt and length variation, keeping the motion lightweight while making the water surface visibly move.
@@ -80,7 +80,45 @@ IMPLEMENTATION STATUS - PROGRESS 4 - 2026-09-10
 Progress 4 verification boundary:
 - Unity 6000.3.11f1 isolated BuildAndValidate passed after final scene generation.
 - Windows development build passed at 151022977 bytes.
-- Runtime effects probe started with every mess/visitor effect hidden, then observed chopping and stove particles active, the rat active from entrance 0, and 11 ant plus 6 fly particles after the trash delay.
+- Historical Progress 4 probe covered the then-current visitor behavior; that behavior and its model were removed in Progress 6.
 - Runtime night probe reported daylight=0.00, day-window maximum=0.00, night-window minimum=1.65, and kitchen-light minimum=2.25.
 - A visible 1280x720 standalone morning capture was inspected; the new floor/wall composition renders correctly and no wildlife visuals remain.
 - Final audio clips remain intentionally pending. No commit or push was performed.
+
+More issues -
+23. For the trash can, the lid is opening downwards making it look odd. it should correctly open upwards. Also rotate the trahs can by 90 so the trash can lid can open from the left (hinge on the right)
+24. For the trash can i wanted to have ants and flies once i have put atleast one item onto it. The black flies show but it goes away after sometimes and since then the trash can has no more flies even after throwing any item. I want the flies to be there until the end of the game. Also want a low volume flies sound when i go near the trash can.
+25. Just like the trash can or chopping board where when i reach near it, the in game name gets faded awat, the same does not happen in case of the stove. Fix this so the text can properly get faded like the others when the player comes close to it.
+26. The customer dialogue are in the cloud background the way i wanted. but the clouds needs to be having the curvy texture in the outide only. what i mean that the black curved lines should not be inside so that the text written on it is reafable and does not look odd. Also the cloudy needs to be bouncy when the text comes for the first time. which wil make it more interesting. (will be attaching reference iamge)
+27. in the pause menu the credits and source file texts are overlapping with the instructions text. i want them to be a little above so that the instruction text are always visible. (iamge attached for reference)
+28. in the garden the grass needs to be patchy. currently its the same colour so it loosk boring. i want some tall grass like structure so it feels more interesting. Same with he water it looks way too boring. I want some kind of movement in the water area like some kind of wavy motion so it feels live. Also other than the lotus i want more round shaped leaves and a tree log in the edges of the pond.
+29. This is the most important change. I want you to generate all the sound effects and music. create two separate music (ambient, enviromental, cozy, calm , prefer piano or jazz) - for the background music that always place. for the other music and sound effects create appropriately as needed. I want the best sound quality and the full game should feel immersive with this new sound improvement.
+
+IMPLEMENTATION STATUS - PROGRESS 5 - 2026-09-10
+
+23. Fixed and runtime-verified: the trash visual is rotated 90 degrees, placing the hinge on the right, and the lid now opens upward from the left with a negative local hinge rotation.
+24. Fixed and runtime-verified: ants and flies loop after the first delayed trash visit and remain until the next match reset. A quiet spatial fly-buzz loop starts with them, is audible only near the trash, and follows the SFX toggle.
+25. Fixed and runtime-verified: station label proximity uses horizontal floor distance instead of including label height. Stove labels now fade to 4% alpha beside the chef.
+26. Implemented and visibly reviewed: customer dialogue uses one original transparent speech-cloud sprite with a single scalloped outer outline and no internal overlap lines. A reusable unscaled-time overshoot animation plays whenever dialogue appears.
+27. Fixed and visibly reviewed: pause credits were raised above the persistent control strip with clear separation at 1280x720.
+28. Implemented and visibly reviewed: six irregular ground patches, 120 tall grass blades, three water shades with animated shimmer, stronger vertical/tilting waves, six additional round pond leaves, and a fallen edge log were added.
+29. Implemented and wired: two original 32-second stereo cozy piano/jazz tracks, eight kitchen sound effects, seven layered garden/marsh ambience loops, and one spatial fly loop were generated at 44.1 kHz/16-bit. All 18 clips are assigned in the generated scene; music starts on the instructions screen, persists through pause/restart, and alternates forever.
+
+Progress 5 verification boundary:
+- Unity 6000.3.11f1 isolated BuildAndValidate passed after final scene generation.
+- Windows development build passed at 154488745 bytes.
+- Historical Progress 5 probe confirmed music playing, upward trash-lid rotation, stove-label alpha 0.040, and persistent ants/flies/buzz; the then-current visitor behavior was removed in Progress 6.
+- Audio analysis confirmed all 18 WAVs are 44.1 kHz, non-silent, and below full-scale clipping.
+- Visible 1280x720 customer, pause, and marsh captures were inspected; speech text is clear, credits do not overlap controls, and the expanded water/pond treatment renders correctly.
+- No NullReferenceException or MissingReferenceException appeared in the runtime logs.
+- No commit or push was performed.
+
+30. Fixed: background music now has explicit non-spatial, unmuted playback recovery on startup, game start, and window focus. Its mix level is 0.72.
+31. Fixed: kitchen sound effects are 0.22, garden ambience is capped at 0.16, marsh ambience at 0.15, and fly buzz at 0.07, keeping every effect layer below the music bed.
+32. Superseded: the earlier rodent-visitor requests are no longer part of the game. Runtime behavior, scene objects, builder references, validation requirements, generated model, and Blender generator content were removed.
+33. Fixed: the pond-edge log now sits along the left bank beside the east kitchen windows.
+34. Fixed: quit-confirmation developer/source links now sit above the persistent game-instruction strip, matching the pause overlay.
+35. Fixed: the generated Main Camera now owns the scene's single enabled `AudioListener`, restoring audible music/effects and eliminating the per-frame missing-listener warning.
+36. Hardened after live-Editor reproduction: `AudioDirector` now repairs a missing or disabled listener at runtime, prefers the active Main Camera, disables duplicates, and logs a one-time listener-ready diagnostic.
+
+37. Updated: both background tracks were re-composed as slower, softer felt-piano pieces with restrained harmonics, gentle attacks, no bright brush percussion, and a lower high-frequency ceiling. Wind and water remain quiet continuous beds, while birds, crickets, splashes, frogs, and hisses now play independently at randomized intervals with slight pitch and stereo variation instead of repeating together as obvious loops. A muffled non-verbal customer murmur plays when a returning customer enters, and a separate warm rising happy gesture plays when an order completes and its score is awarded.

@@ -1,5 +1,7 @@
 # YesChef Progress 4
 
+> Historical handoff: the former rodent visitor described below was removed in Progress 6 after the design changed.
+
 Last updated: 2026-09-10  
 Progress 4 state: implemented and verified locally, but not committed or pushed
 
@@ -9,7 +11,7 @@ Issues 17-22 are implemented in runtime code, the editable scene builder, and th
 
 - Animal visuals were completely removed from scene generation while the future wildlife audio slots were preserved.
 - All four physical windows now light independently in both directions across the day/night cycle.
-- Cheese spills can summon a rat from any of four kitchen corners.
+- This historical visitor behavior was superseded and removed in Progress 6.
 - Kitchen mess, ant, and fly particles stay hidden until their matching gameplay events.
 - The kitchen floor uses a centered symmetric tile pattern, while the walls retain coordinated geometric trim.
 - The marsh uses more visible phase-offset vertical waves with subtle tilt and scale movement.
@@ -22,7 +24,7 @@ Issues 17-22 are implemented in runtime code, the editable scene builder, and th
 
 ### Kitchen activity
 
-`KitchenActivityEffects` clears all pools on scene start and match restart. Cheese and meat retain a 50% spill chance, but only cheese crumbs schedule a rat. The rat chooses one of four corner entrances, visits the food point after 2-3 seconds, and returns to its chosen entrance. Chopping and cooking particles only emit while those stations are active. The first trash discard schedules ground-level red ants and small noise-driven orbiting flies after 5-6 seconds.
+`KitchenActivityEffects` clears all pools on scene start and match restart. Cheese and meat retain a 50% spill chance. Chopping and cooking particles only emit while those stations are active. The first trash discard schedules ground-level red ants and small noise-driven orbiting flies after 5-6 seconds. The former visitor behavior described by this historical handoff was removed in Progress 6.
 
 ### Surfaces and water
 
@@ -32,9 +34,9 @@ The floor uses a charcoal grout base, brass perimeter, and a neutral 9-by-7 chec
 
 - Unity 6000.3.11f1 isolated `BuildAndValidate`: passed after final scene regeneration.
 - Windows development build: passed, 151022977 bytes.
-- Runtime initial state: chop `False`, stove `False`, ants `False`, flies `False`, rat `False`.
+- Runtime initial state: chop `False`, stove `False`, ants `False`, flies `False`.
 - Runtime triggered state: chop `True`, stove `True`.
-- Rat probe: active after the delay, selected entrance index `0`, and moving from that corner.
+- The historical visitor probe is superseded by the Progress 6 removal verification.
 - Trash probe: 11 ant particles and 6 fly particles after the delay; no particle curve warnings.
 - Night probe: daylight `0.00`, sun `0.00`, day windows `0.00`, night windows `1.65`, kitchen minimum `2.25`.
 - Visible 1280x720 Windows capture inspected: patterned surfaces render correctly and wildlife visuals are absent.

@@ -88,6 +88,7 @@ namespace YesChef
             adaptiveCamera?.ResetZoom();
             dayNightCycle?.ResetCycle();
             KitchenActivityEffects.Instance?.ResetEffects();
+            AudioDirector.Instance?.EnsureMusicPlaying();
             instructionsPanel.SetActive(false);
             pausePanel.SetActive(false);
             resultsPanel.SetActive(false);

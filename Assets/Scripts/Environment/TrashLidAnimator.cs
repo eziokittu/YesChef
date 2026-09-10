@@ -5,7 +5,7 @@ namespace YesChef
     public sealed class TrashLidAnimator : MonoBehaviour
     {
         public Transform lid;
-        public float openAngle = 72f;
+        public float openAngle = -72f;
         public float openSeconds = 0.55f;
         public float speed = 7f;
         private Quaternion closedRotation;

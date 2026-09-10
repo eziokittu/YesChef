@@ -22,6 +22,8 @@
 .vs/
 .vscode/
 .idea/
+__pycache__/
+*.py[cod]
 .gradle/
 ExportedObj/
 .consulo/

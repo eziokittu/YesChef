@@ -37,13 +37,14 @@ This project is deliberately split into small scripts with one clear job each. T
 | `FridgeMenuController` | Opens the scrollable screen catalogue and routes button choices to the refrigerator |
 | `RefrigeratorAnimator` | Smooth Blender-hinge door animation and synchronized interior-light fade |
 | `WorldLabelFader` | Softens station labels near the chef and hides them while a station surface is occupied |
+| `DialogueBubbleAnimator` | Plays the short unscaled-time overshoot when a clean customer speech bubble appears |
 | `ExternalLinkButton` | Opens the Glitchbong contact page and public source URL from the credits UI |
 | `AdaptiveCinemachineCamera` | Smooth Cinemachine follow lens with idle marsh, garden, and customer-road edge reveals |
 | `DayNightCycle` | Three-minute morning/sunset/night/sunrise timeline, four independent daylight window cones, and four outward night spill cones |
-| `AudioDirector` | Persistent two-track playlist, music/SFX preferences, and optional kitchen SFX routing |
-| `AmbientAudioZone` | Distance-faded garden and marsh ambience sources |
+| `AudioDirector` | Persistent generated two-track felt-piano playlist, customer arrival/success gestures, focus/restart recovery, automatic Main Camera listener repair, music/SFX preferences, and a music-forward mix |
+| `AmbientAudioZone` | Distance-faded wind/water beds plus independently randomized bird, cricket, splash, frog, and hiss one-shots with small pitch/stereo variation |
 | `WindSway`, `WaterSurfaceAnimator` | Lightweight procedural plant and faceted-water motion |
-| `KitchenActivityEffects` | Event-only bounded particles, delayed trash insects, and a cheese-seeking rat entering from a random kitchen corner |
+| `KitchenActivityEffects` | Event-only bounded spill particles and persistent trash insects with quiet spatial buzzing |
 | `TrashLidAnimator` | Reusable timed lid hinge animation |
 | `Billboard` | Rotates world-space TMP cards toward the active Cinemachine-driven camera |
 
@@ -64,7 +65,7 @@ The most important design decision is separating definitions, runtime state, and
 
 The stations use the same pattern: validate the held item, transfer ownership from the inventory to a station anchor, advance a timer, change preparation state, and allow collection. Two separate `StoveStation` instances make the cooking positions visually and logically independent.
 
-The real Camera contains a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. `AdaptiveCinemachineCamera` waits for three idle seconds before slowly changing the perspective field of view, keeping camera responsibilities separate from movement.
+The real Camera contains the scene's single enabled `AudioListener` and a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. `AdaptiveCinemachineCamera` waits for three idle seconds before slowly changing the perspective field of view, keeping camera responsibilities separate from movement.
 
 The chef and customer hierarchy deliberately separates facing from model-axis correction. Movement rotates a Unity Y-up parent while the Blender mesh keeps its import correction on a child. `CharacterIdleMotion` also runs on that child, so neither movement nor animation can make a character fall onto its side.
 

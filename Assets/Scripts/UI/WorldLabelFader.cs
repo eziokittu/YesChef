@@ -12,7 +12,7 @@ namespace YesChef
         public Transform player;
         public float fadeDistance = 2.4f;
         [Range(0f, 1f)] public float distantAlpha = 1f;
-        [Range(0f, 1f)] public float nearbyAlpha = 0.16f;
+        [Range(0f, 1f)] public float nearbyAlpha = 0.04f;
         public float fadeSpeed = 5f;
 
         private CanvasGroup canvasGroup;
@@ -32,8 +32,18 @@ namespace YesChef
 
             var targetAlpha = distantAlpha;
             if (suppressed) targetAlpha = 0f;
-            else if (player != null && Vector3.Distance(transform.position, player.position) <= fadeDistance)
-                targetAlpha = nearbyAlpha;
+            else if (player != null)
+            {
+                // Station labels sit well above the floor. Measuring the full
+                // 3D distance made the stove labels appear farther away than
+                // the chef even when standing beside them.
+                var labelPosition = transform.position;
+                var playerPosition = player.position;
+                labelPosition.y = 0f;
+                playerPosition.y = 0f;
+                if (Vector3.Distance(labelPosition, playerPosition) <= fadeDistance)
+                    targetAlpha = nearbyAlpha;
+            }
 
             canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, fadeSpeed * Time.unscaledDeltaTime);
         }

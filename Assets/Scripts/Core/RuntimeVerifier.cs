@@ -5,12 +5,27 @@ using UnityEngine;
 
 namespace YesChef
 {
+    [DefaultExecutionOrder(-10000)]
     public sealed class RuntimeVerifier : MonoBehaviour
     {
+        private bool listenerRepairProbe;
+
+        private void Awake()
+        {
+            listenerRepairProbe = Array.IndexOf(Environment.GetCommandLineArgs(), "-yeschef-listener-repair-probe") >= 0;
+            if (!listenerRepairProbe) return;
+            foreach (var listener in FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                DestroyImmediate(listener);
+        }
+
         private void Start()
         {
             var arguments = Environment.GetCommandLineArgs();
-            if (Array.IndexOf(arguments, "-yeschef-gameplay-capture") >= 0)
+            if (listenerRepairProbe)
+            {
+                StartCoroutine(ProbeAudioListenerRepairAndQuit());
+            }
+            else if (Array.IndexOf(arguments, "-yeschef-gameplay-capture") >= 0)
             {
                 StartCoroutine(CaptureAndQuit(true, false, false, false, false, false, false, false));
             }
@@ -50,6 +65,20 @@ namespace YesChef
             {
                 StartCoroutine(CaptureAndQuit(false, false, false, false, false, false, false, false));
             }
+        }
+
+        private static IEnumerator ProbeAudioListenerRepairAndQuit()
+        {
+            yield return null;
+            var listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var music = AudioDirector.Instance.musicSource;
+            var startSample = music.timeSamples;
+            yield return new WaitForSecondsRealtime(.75f);
+            var host = listeners.Length == 1 ? listeners[0].gameObject : null;
+            Debug.Log($"YES_CHEF_LISTENER_REPAIR_PROBE: count={listeners.Length}, host={(host != null ? host.name : "NONE")}, " +
+                      $"music={music.isPlaying}, advanced={music.timeSamples > startSample}");
+            Application.Quit(listeners.Length == 1 && host == Camera.main.gameObject &&
+                             music.isPlaying && music.timeSamples > startSample ? 0 : 1);
         }
 
         private static IEnumerator CaptureAndQuit(bool beginGame, bool openFridge, bool lightStove, bool pauseMenu,
@@ -138,8 +167,13 @@ namespace YesChef
             yield return null;
             GameManager.Instance.BeginGame();
             var effects = KitchenActivityEffects.Instance;
+            var music = AudioDirector.Instance.musicSource;
+            var initialMusicSample = music.timeSamples;
+            var activeListeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            Debug.Log($"YES_CHEF_AUDIO_LISTENER_COUNT: {activeListeners.Length}");
             Debug.Log($"YES_CHEF_EFFECTS_INITIAL: chop={effects.choppingSpill.isPlaying}, stove={effects.meatSpill.isPlaying}, " +
-                      $"ants={effects.trashAnts.isPlaying}, flies={effects.trashFlies.isPlaying}, rat={effects.rat.activeSelf}");
+                      $"ants={effects.trashAnts.isPlaying}, flies={effects.trashFlies.isPlaying}, " +
+                      $"music={music.isPlaying}, track={music.clip?.name}, volume={music.volume:0.00}");
 
             // Choose a deterministic state whose next value triggers the normal
             // 50% cheese spill path; the production method remains unchanged.
@@ -157,11 +191,28 @@ namespace YesChef
             effects.OnTrashDiscard();
             effects.OnChoppingStarted();
             effects.OnCookingStarted();
+            var trash = FindFirstObjectByType<TrashStation>();
+            trash?.lidAnimator?.OpenOnce();
             Debug.Log($"YES_CHEF_EFFECTS_TRIGGERED: chop={effects.choppingSpill.isPlaying}, stove={effects.meatSpill.isPlaying}");
-            yield return new WaitForSecondsRealtime(3.1f);
-            Debug.Log($"YES_CHEF_RAT_VISIT: active={effects.rat.activeSelf}, entrance={effects.LastRatEntranceIndex}, position={effects.rat.transform.position}");
-            yield return new WaitForSecondsRealtime(3.2f);
+            yield return new WaitForSecondsRealtime(.25f);
+            if (trash != null && trash.lidAnimator != null && trash.lidAnimator.lid != null)
+                Debug.Log($"YES_CHEF_TRASH_LID_UP: localEuler={trash.lidAnimator.lid.localEulerAngles}");
+
+            var chef = GameManager.Instance.player;
+            var controller = chef.GetComponent<CharacterController>();
+            controller.enabled = false;
+            chef.transform.position = GameManager.Instance.stoves[0].transform.position + Vector3.back * .4f;
+            controller.enabled = true;
+            yield return new WaitForSecondsRealtime(.5f);
+            var stoveLabelAlpha = GameManager.Instance.stoves[0].labelFader.GetComponent<CanvasGroup>().alpha;
+            Debug.Log($"YES_CHEF_STOVE_LABEL_NEARBY_ALPHA: {stoveLabelAlpha:0.000}");
+            Debug.Log($"YES_CHEF_MUSIC_ADVANCING: playing={music.isPlaying}, startSample={initialMusicSample}, " +
+                      $"currentSample={music.timeSamples}, advanced={music.timeSamples > initialMusicSample}");
+            yield return new WaitForSecondsRealtime(5.55f);
             Debug.Log($"YES_CHEF_TRASH_VISITORS: ants={effects.trashAnts.particleCount}, flies={effects.trashFlies.particleCount}");
+            yield return new WaitForSecondsRealtime(8f);
+            Debug.Log($"YES_CHEF_TRASH_VISITORS_PERSIST: ants={effects.trashAnts.particleCount}, flies={effects.trashFlies.particleCount}, " +
+                      $"buzz={effects.trashFlyAudio != null && effects.trashFlyAudio.isPlaying}");
             Application.Quit(0);
         }
     }

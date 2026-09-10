@@ -209,7 +209,7 @@ See `docs/ARCHITECTURE.md` for the detailed code walkthrough.
 - [x] Gameplay, refrigerator, pause, and quit runtime captures exited with code 0.
 - [x] No runtime `NullReferenceException` or `MissingReferenceException` occurred in those captures.
 - [x] Public GitHub revision and local commit were synchronized at `95f2aa5`.
-- [x] Progress 2 Blender generator exported 23 FBX assets, including the new rat and bush.
+- [x] Progress 2 Blender generator exported 23 FBX assets; its former visitor asset was removed after the Progress 6 design revision.
 - [x] Expanded isolated validator passed audio, ambience, exterior motion, water, camera reveal, UI toggles, micro-effects, light cones, and new-model checks.
 - [x] Progress 2 Windows development build completed successfully (reported total size `150830570` bytes).
 - [x] Runtime fridge probe logged `YES_CHEF_FRIDGE_E_CLOSE_WITH_HELD_ITEM: True`.

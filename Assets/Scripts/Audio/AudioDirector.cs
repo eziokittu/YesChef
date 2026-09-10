@@ -16,10 +16,11 @@ namespace YesChef
         [Header("Music playlist")]
         public AudioSource musicSource;
         public AudioClip[] musicTracks = new AudioClip[2];
-        [Range(0f, 1f)] public float musicVolume = 0.55f;
+        [Range(0f, 1f)] public float musicVolume = 0.72f;
 
         [Header("Kitchen sound effects")]
         public AudioSource sfxSource;
+        [Range(0f, 1f)] public float sfxVolume = 0.22f;
         public AudioClip chopping;
         public AudioClip cooking;
         public AudioClip fridgeOpen;
@@ -27,6 +28,8 @@ namespace YesChef
         public AudioClip foodPrepared;
         public AudioClip newOrder;
         public AudioClip orderItemReceived;
+        public AudioClip customerArrival;
+        public AudioClip customerHappy;
         public AudioClip trash;
 
         public bool MusicEnabled { get; private set; } = true;
@@ -34,6 +37,8 @@ namespace YesChef
 
         private int trackIndex;
         private float musicDisabledAt = -1f;
+        private AudioListener activeListener;
+        private bool listenerReadyLogged;
 
         private void Awake()
         {
@@ -45,6 +50,7 @@ namespace YesChef
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            EnsureAudioListener();
             MusicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) == 1;
             SfxEnabled = PlayerPrefs.GetInt(SfxEnabledKey, 1) == 1;
             if (musicSource != null)
@@ -52,21 +58,83 @@ namespace YesChef
                 musicSource.loop = false;
                 musicSource.playOnAwake = false;
                 musicSource.ignoreListenerPause = true;
+                musicSource.spatialBlend = 0f;
+                musicSource.mute = false;
+                musicSource.priority = 0;
                 musicSource.volume = musicVolume;
             }
-            if (sfxSource != null) sfxSource.ignoreListenerPause = true;
+            if (sfxSource != null)
+            {
+                sfxSource.ignoreListenerPause = true;
+                sfxSource.spatialBlend = 0f;
+                sfxSource.volume = sfxVolume;
+            }
         }
 
-        private void Start() => PlayCurrentTrack(false);
+        private void Start() => EnsureMusicPlaying();
 
         private void Update()
         {
+            EnsureAudioListener();
             if (!MusicEnabled || musicSource == null || musicSource.isPlaying) return;
             if (HasAnyMusic())
             {
                 trackIndex = NextValidTrack(trackIndex + 1);
                 PlayCurrentTrack(false);
             }
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus) return;
+            EnsureAudioListener();
+            EnsureMusicPlaying();
+        }
+
+        private void EnsureAudioListener()
+        {
+            if (activeListener != null && activeListener.enabled && activeListener.gameObject.activeInHierarchy) return;
+
+            var listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var mainCamera = Camera.main;
+            AudioListener listener = null;
+            if (mainCamera != null)
+            {
+                listener = mainCamera.GetComponent<AudioListener>();
+                if (listener == null) listener = mainCamera.gameObject.AddComponent<AudioListener>();
+            }
+            else
+            {
+                foreach (var candidate in listeners)
+                {
+                    if (candidate != null && candidate.gameObject.activeInHierarchy)
+                    {
+                        listener = candidate;
+                        break;
+                    }
+                }
+                if (listener == null) listener = gameObject.AddComponent<AudioListener>();
+            }
+
+            listener.enabled = true;
+            activeListener = listener;
+            foreach (var candidate in listeners)
+            {
+                if (candidate != null && candidate != activeListener) candidate.enabled = false;
+            }
+
+            if (listenerReadyLogged) return;
+            listenerReadyLogged = true;
+            Debug.Log($"YES_CHEF_AUDIO_LISTENER_READY: host={activeListener.gameObject.name}, active={activeListener.enabled && activeListener.gameObject.activeInHierarchy}");
+        }
+
+        public void EnsureMusicPlaying()
+        {
+            if (!MusicEnabled || musicSource == null || musicSource.isPlaying || !HasAnyMusic()) return;
+            musicSource.enabled = true;
+            musicSource.mute = false;
+            musicSource.volume = musicVolume;
+            PlayCurrentTrack(false);
         }
 
         public void SetMusicEnabled(bool enabled)
@@ -101,6 +169,8 @@ namespace YesChef
         public void PlayPrepared() => Play(foodPrepared);
         public void PlayNewOrder() => Play(newOrder);
         public void PlayOrderItemReceived() => Play(orderItemReceived);
+        public void PlayCustomerArrival() => Play(customerArrival);
+        public void PlayCustomerHappy() => Play(customerHappy);
         public void PlayTrash() => Play(trash);
 
         public void Play(AudioClip clip, AudioSource source = null)

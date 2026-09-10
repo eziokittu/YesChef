@@ -48,8 +48,10 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Timed rounded customer speech clouds above their heads, serving-table order cards and fading score popups
 - Outdoor road and walking customer routes, garden/flowers, tall windowed building, and animated faceted marsh with lotus plants
 - Four independent daylight window cones and four outward-facing night spill lights
-- Event-only kitchen mess effects, delayed trash ants/flies, and a cheese-seeking rat that can enter from any corner
+- Event-only kitchen mess effects plus delayed, persistent trash ants/flies with quiet spatial buzzing
 - Symmetric neutral checker tiles plus patterned wall trim and motifs
+- Original two-track calm felt-piano soundtrack, complete kitchen/customer SFX, dynamically timed exterior ambience, and proximity fly buzz
+- Clean single-silhouette customer speech bubbles with a short entrance bounce
 - Polished TextMesh Pro HUD, held-item display, proximity-fading station labels and activity-only progress bars
 
 ## Understanding the code
@@ -62,7 +64,7 @@ Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). It explains the compl
 - Blender generation script: `Tools/Blender/generate_low_poly_assets.py`
 - Unity-ready FBXs: `Assets/Art/Models/`
 - Included assets: chef, refrigerator, chopping table, stove, trash bin, customer window, floor/wall modules, raw/chopped vegetables, cheese, and raw/cooked meat
-- Additional Blender assets used in the scene: single stove, customizable customer, trees, flowers, lotus, bush, and rat
+- Additional Blender assets used in the scene: single stove, customizable customer, trees, flowers, lotus, and bush
 - Frog, fish, snake, and butterfly audio slots remain available, but their visual models are intentionally not instantiated
 
 Regenerate the models with Blender 5.2+ from the repository root:
@@ -70,6 +72,22 @@ Regenerate the models with Blender 5.2+ from the repository root:
 ```powershell
 & "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python ".\Tools\Blender\generate_low_poly_assets.py"
 ```
+
+## Original generated audio
+
+- Reproducible generator: `Tools/Audio/generate_audio_assets.py`
+- Output: `Assets/Audio/Generated/`
+- Mix: background music at 72%, kitchen SFX at 22%, and exterior/spatial ambience at 16% or below
+- Format: 44.1 kHz, 16-bit WAV; stereo music and mono positional effects
+- Includes two 34-37 second music tracks, eight kitchen cues, two customer voice gestures, two soft environmental beds, five randomized wildlife details, and one trash-fly loop
+
+Regenerate the complete audio pack with:
+
+```powershell
+python .\Tools\Audio\generate_audio_assets.py
+```
+
+The music and sound design are original deterministic synthesis and require no downloaded samples.
 
 ## Planned project structure
 

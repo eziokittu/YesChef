@@ -54,7 +54,7 @@ namespace YesChef.Editor
             var windows = CreateCustomerTables(models);
             var audio = CreateAudioDirector();
             CreateAmbientAudio(player);
-            CreateKitchenActivityEffects(models, refrigerator, table, stoves, trash);
+            CreateKitchenActivityEffects(refrigerator, table, stoves, trash);
 
             refrigerator.transform.SetParent(gameRoot.transform);
             table.transform.SetParent(gameRoot.transform);
@@ -124,6 +124,7 @@ namespace YesChef.Editor
         {
             ConfigureSprite("Assets/UI/Brand/GlitchbongLogo.png");
             ConfigureSprite("Assets/UI/Brand/GitHub_Invertocat_White.png");
+            ConfigureSprite("Assets/UI/CustomerSpeechBubble.png");
         }
 
         private static void ConfigureSprite(string path)
@@ -143,7 +144,7 @@ namespace YesChef.Editor
             {
                 "Refrigerator", "ChoppingTable", "SingleStove", "TrashBin", "Chef", "Customer",
                 "VegetableRaw", "VegetableChopped", "Cheese", "MeatRaw", "MeatCooked",
-                "Tree", "Flower", "Lotus", "Rat", "Bush"
+                "Tree", "Flower", "Lotus", "Bush"
             };
             return names.ToDictionary(name => name, name =>
             {
@@ -172,7 +173,9 @@ namespace YesChef.Editor
             var wall = GetOrCreateMaterial("Kitchen Walls", new Color(0.93f, 0.84f, 0.67f));
             var road = GetOrCreateMaterial("Road", new Color(0.13f, 0.15f, 0.17f));
             var roadLine = GetOrCreateMaterial("Road Line", new Color(0.95f, 0.76f, 0.16f));
-            var water = GetOrCreateMaterial("Marsh Water", new Color(0.07f, 0.38f, 0.42f));
+            var water = GetOrCreateMaterial("Marsh Water", new Color(0.06f, 0.35f, 0.42f));
+            var waterLight = GetOrCreateMaterial("Marsh Water Light", new Color(0.08f, 0.43f, 0.49f));
+            var waterDeep = GetOrCreateMaterial("Marsh Water Deep", new Color(0.045f, 0.28f, 0.36f));
             var stone = GetOrCreateMaterial("Building", new Color(0.33f, 0.36f, 0.43f));
             var glass = GetOrCreateTransparentMaterial("Building Windows", new Color(0.12f, 0.62f, 0.86f, .28f));
 
@@ -200,8 +203,10 @@ namespace YesChef.Editor
             for (var x = 8f; x <= 14f; x += 1.5f)
                 for (var z = -12f; z <= 12f; z += 2f)
                 {
-                    var tile = CreateVisualBoxObject("Moving Water Facet", new Vector3(x, -0.09f, z), new Vector3(1.55f, 0.04f, 2.05f), water, environment);
-                    tile.AddComponent<WaterSurfaceAnimator>().waveSpeed = 0.9f + Mathf.Abs((x + z) % 3f) * 0.08f;
+                    var band = Mathf.Abs(Mathf.RoundToInt(x * 2f + z)) % 3;
+                    var tileMaterial = band == 0 ? waterLight : band == 1 ? water : waterDeep;
+                    var tile = CreateVisualBoxObject("Moving Water Facet", new Vector3(x, -0.09f, z), new Vector3(1.55f, 0.04f, 2.05f), tileMaterial, environment);
+                    tile.AddComponent<WaterSurfaceAnimator>().waveSpeed = 0.82f + Mathf.Abs((x + z) % 4f) * 0.09f;
                 }
             CreateBuilding(environment, stone, glass);
             CreateNature(models, environment);
@@ -294,6 +299,7 @@ namespace YesChef.Editor
             }
             foreach (var position in new[] { new Vector3(-5.2f,0,-9.7f), new Vector3(-2.1f,0,-7.9f), new Vector3(3.2f,0,-9.3f), new Vector3(5.8f,0,-8.1f) })
                 AddModel(models["Bush"], "Garden Bush", position, Quaternion.Euler(0, position.x * 23f, 0), Vector3.one * 1.1f, parent).AddComponent<WindSway>();
+            CreateGardenPatches(parent);
             CreateGrassClumps(parent);
         }
 
@@ -305,6 +311,13 @@ namespace YesChef.Editor
                 var lotus = AddModel(models["Lotus"], "Windy Lotus", position, Quaternion.identity, Vector3.one * 1.2f, parent);
                 lotus.AddComponent<WindSway>().angle = 1.4f;
             }
+            foreach (var position in new[]
+                     {
+                         new Vector3(8.0f,-.01f,-7.2f), new Vector3(10.1f,-.01f,-5.9f), new Vector3(13.4f,-.01f,-4.4f),
+                         new Vector3(8.7f,-.01f,4.1f), new Vector3(11.8f,-.01f,6.5f), new Vector3(13.6f,-.01f,2.7f)
+                     })
+                CreateLilyPad(position, parent, .62f);
+            CreatePondLog(parent);
         }
 
         private static void CreateWindowedKitchenWalls(Transform parent, Material wall, Material glass)
@@ -334,13 +347,13 @@ namespace YesChef.Editor
             CreateWindowLight("Night Window Spill - East South", new Vector3(5.45f, 2.35f, -2f), Quaternion.Euler(28f, 90f, 0f), parent, false);
         }
 
-        private static void CreateLilyPad(Vector3 position, Transform parent)
+        private static void CreateLilyPad(Vector3 position, Transform parent, float scale = .72f)
         {
             var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pad.name = "Low Poly Lotus Leaf";
             pad.transform.SetParent(parent);
             pad.transform.position = position;
-            pad.transform.localScale = new Vector3(.72f,.018f,.58f);
+            pad.transform.localScale = new Vector3(scale,.018f,scale * .82f);
             Object.DestroyImmediate(pad.GetComponent<Collider>());
             pad.GetComponent<Renderer>().sharedMaterial = GetOrCreateMaterial("Lotus Leaf", new Color(.16f,.48f,.18f));
             var sway = pad.AddComponent<WindSway>(); sway.angle = .8f; sway.speed = .7f;
@@ -363,15 +376,70 @@ namespace YesChef.Editor
         private static void CreateGrassClumps(Transform parent)
         {
             var material = GetOrCreateMaterial("Garden Grass Blades", new Color(.12f, .38f, .13f));
-            var positions = new[] { new Vector3(-4.8f,0,-6.8f), new Vector3(-3.7f,0,-8.2f), new Vector3(-.8f,0,-8.6f), new Vector3(.8f,0,-7.8f), new Vector3(2.8f,0,-8.8f), new Vector3(4.9f,0,-6.8f) };
+            var positions = new[]
+            {
+                new Vector3(-5.2f,0,-6.1f), new Vector3(-4.8f,0,-7.4f), new Vector3(-4.0f,0,-8.7f),
+                new Vector3(-3.1f,0,-6.8f), new Vector3(-2.5f,0,-9.5f), new Vector3(-1.6f,0,-7.8f),
+                new Vector3(-.8f,0,-9.1f), new Vector3(.1f,0,-6.6f), new Vector3(.8f,0,-8.2f),
+                new Vector3(1.7f,0,-9.6f), new Vector3(2.4f,0,-7.1f), new Vector3(3.2f,0,-8.7f),
+                new Vector3(4.0f,0,-6.3f), new Vector3(4.8f,0,-9.3f), new Vector3(5.5f,0,-7.8f)
+            };
             for (var index = 0; index < positions.Length; index++)
             {
                 var clump = new GameObject("Windy Grass Clump");
                 clump.transform.SetParent(parent);
                 clump.transform.position = positions[index];
-                for (var blade = 0; blade < 5; blade++)
-                    CreateVisualBox("Grass Blade", positions[index] + new Vector3((blade - 2) * .08f, .22f + blade % 2 * .06f, blade % 3 * .06f), new Vector3(.035f, .44f + blade % 2 * .12f, .035f), material, clump.transform);
+                for (var blade = 0; blade < 8; blade++)
+                    CreateVisualBox("Tall Grass Blade", positions[index] + new Vector3((blade % 4 - 1.5f) * .09f, .28f + blade % 3 * .075f, (blade / 4 - .5f) * .13f),
+                        new Vector3(.035f, .56f + blade % 3 * .15f, .035f), material, clump.transform);
                 var sway = clump.AddComponent<WindSway>(); sway.angle = 5f; sway.phase = index * .8f;
+            }
+        }
+
+        private static void CreateGardenPatches(Transform parent)
+        {
+            var darkPatch = GetOrCreateMaterial("Garden Patch Dark", new Color(.12f,.36f,.15f));
+            var lightPatch = GetOrCreateMaterial("Garden Patch Light", new Color(.25f,.56f,.22f));
+            var positions = new[]
+            {
+                new Vector3(-4.4f,-.105f,-7.2f), new Vector3(-2.2f,-.105f,-8.9f), new Vector3(.4f,-.105f,-7.1f),
+                new Vector3(2.6f,-.105f,-9.1f), new Vector3(4.7f,-.105f,-7.5f), new Vector3(1.1f,-.105f,-10.2f)
+            };
+            for (var index = 0; index < positions.Length; index++)
+            {
+                var patch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                patch.name = "Patchy Garden Ground";
+                patch.transform.SetParent(parent);
+                patch.transform.position = positions[index];
+                patch.transform.localScale = new Vector3(1.15f + index % 3 * .32f,.012f,.72f + index % 2 * .28f);
+                patch.transform.rotation = Quaternion.Euler(0,index * 37f,0);
+                Object.DestroyImmediate(patch.GetComponent<Collider>());
+                patch.GetComponent<Renderer>().sharedMaterial = index % 2 == 0 ? darkPatch : lightPatch;
+            }
+        }
+
+        private static void CreatePondLog(Transform parent)
+        {
+            var bark = GetOrCreateMaterial("Pond Log Bark", new Color(.27f,.12f,.055f));
+            var cut = GetOrCreateMaterial("Pond Log Cut", new Color(.52f,.30f,.13f));
+            var log = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            log.name = "Fallen Pond Edge Log";
+            log.transform.SetParent(parent);
+            log.transform.position = new Vector3(7.65f,.16f,2.85f);
+            log.transform.rotation = Quaternion.Euler(78f,0,0);
+            log.transform.localScale = new Vector3(.34f,1.65f,.34f);
+            Object.DestroyImmediate(log.GetComponent<Collider>());
+            log.GetComponent<Renderer>().sharedMaterial = bark;
+            foreach (var side in new[] { -1f, 1f })
+            {
+                var end = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                end.name = "Pond Log Cut End";
+                end.transform.SetParent(parent);
+                end.transform.position = log.transform.position + log.transform.up * (side * 1.66f);
+                end.transform.rotation = log.transform.rotation;
+                end.transform.localScale = new Vector3(.285f,.018f,.285f);
+                Object.DestroyImmediate(end.GetComponent<Collider>());
+                end.GetComponent<Renderer>().sharedMaterial = cut;
             }
         }
 
@@ -424,42 +492,88 @@ namespace YesChef.Editor
 
         private static AudioDirector CreateAudioDirector()
         {
-            var root = new GameObject("AUDIO - DROP CLIPS HERE");
+            var root = new GameObject("AUDIO - ORIGINAL GENERATED CLIPS");
             var director = root.AddComponent<AudioDirector>();
             director.musicSource = root.AddComponent<AudioSource>();
             director.sfxSource = root.AddComponent<AudioSource>();
             director.musicSource.playOnAwake = false;
             director.sfxSource.playOnAwake = false;
+            director.musicVolume = .72f;
+            director.sfxVolume = .22f;
+            director.musicTracks = new[]
+            {
+                LoadAudioClip("Music_CozyMorning.wav"),
+                LoadAudioClip("Music_EveningCafe.wav")
+            };
+            director.chopping = LoadAudioClip("SFX_Chopping.wav");
+            director.cooking = LoadAudioClip("SFX_CookingSizzle.wav");
+            director.fridgeOpen = LoadAudioClip("SFX_FridgeOpen.wav");
+            director.fridgeClose = LoadAudioClip("SFX_FridgeClose.wav");
+            director.foodPrepared = LoadAudioClip("SFX_FoodPrepared.wav");
+            director.newOrder = LoadAudioClip("SFX_NewOrder.wav");
+            director.orderItemReceived = LoadAudioClip("SFX_OrderReceived.wav");
+            director.customerArrival = LoadAudioClip("SFX_CustomerArrival.wav");
+            director.customerHappy = LoadAudioClip("SFX_CustomerHappy.wav");
+            director.trash = LoadAudioClip("SFX_Trash.wav");
             return director;
         }
 
         private static void CreateAmbientAudio(PlayerController player)
         {
-            CreateAmbientZone("Garden Ambience - Crickets Birds Wind", new Vector3(0, 0, -5f), player, 3);
-            CreateAmbientZone("Marsh Ambience - Water Paddle Frog Hiss", new Vector3(6f, 0, 0), player, 4);
+            CreateAmbientZone("Garden Ambience - Crickets Birds Wind", new Vector3(0, 0, -5f), player,
+                new[] { "AMB_Wind.wav" }, new[] { .72f },
+                new[] { "AMB_Crickets.wav", "AMB_Birds.wav" }, new[] { .24f, .44f },
+                new[] { 4.5f, 7f }, new[] { 10f, 18f }, .16f);
+            CreateAmbientZone("Marsh Ambience - Water Paddle Frog Hiss", new Vector3(6f, 0, 0), player,
+                new[] { "AMB_Water.wav" }, new[] { .78f },
+                new[] { "AMB_Paddle.wav", "AMB_Frog.wav", "AMB_Hiss.wav" }, new[] { .44f, .28f, .12f },
+                new[] { 6f, 10f, 18f }, new[] { 16f, 25f, 40f }, .15f);
         }
 
-        private static void CreateAmbientZone(string name, Vector3 position, PlayerController player, int sourceCount)
+        private static void CreateAmbientZone(string name, Vector3 position, PlayerController player,
+            string[] loopClipNames, float[] loopVolumes, string[] detailClipNames, float[] detailVolumes,
+            float[] minimumIntervals, float[] maximumIntervals, float maximumVolume)
         {
             var root = new GameObject(name);
             root.transform.position = position;
             var zone = root.AddComponent<AmbientAudioZone>();
             zone.listener = player.transform;
-            zone.loops = new AudioSource[sourceCount];
-            for (var index = 0; index < sourceCount; index++)
-            {
-                var sourceObject = new GameObject($"Optional Loop {index + 1}");
-                sourceObject.transform.SetParent(root.transform, false);
-                var source = sourceObject.AddComponent<AudioSource>();
-                source.loop = true;
-                source.playOnAwake = false;
-                source.spatialBlend = .35f;
-                zone.loops[index] = source;
-            }
+            zone.maximumVolume = maximumVolume;
+            zone.continuousRelativeVolumes = loopVolumes;
+            zone.randomRelativeVolumes = detailVolumes;
+            zone.minimumIntervals = minimumIntervals;
+            zone.maximumIntervals = maximumIntervals;
+            zone.continuousLoops = CreateAmbientSources(root.transform, loopClipNames, true);
+            zone.randomOneShots = CreateAmbientSources(root.transform, detailClipNames, false);
         }
 
-        private static void CreateKitchenActivityEffects(IReadOnlyDictionary<string, GameObject> models,
-            RefrigeratorStation refrigerator, ChoppingTableStation table, StoveStation[] stoves, TrashStation trash)
+        private static AudioSource[] CreateAmbientSources(Transform parent, string[] clipNames, bool loop)
+        {
+            var sources = new AudioSource[clipNames.Length];
+            for (var index = 0; index < clipNames.Length; index++)
+            {
+                var sourceObject = new GameObject(Path.GetFileNameWithoutExtension(clipNames[index]));
+                sourceObject.transform.SetParent(parent, false);
+                var source = sourceObject.AddComponent<AudioSource>();
+                source.loop = loop;
+                source.playOnAwake = false;
+                source.spatialBlend = .35f;
+                source.clip = LoadAudioClip(clipNames[index]);
+                sources[index] = source;
+            }
+            return sources;
+        }
+
+        private static AudioClip LoadAudioClip(string fileName)
+        {
+            var path = $"Assets/Audio/Generated/{fileName}";
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+            if (clip == null) throw new MissingReferenceException($"Generated audio clip is missing: {path}");
+            return clip;
+        }
+
+        private static void CreateKitchenActivityEffects(RefrigeratorStation refrigerator,
+            ChoppingTableStation table, StoveStation[] stoves, TrashStation trash)
         {
             var root = new GameObject("POOLED KITCHEN MICRO EFFECTS");
             var effects = root.AddComponent<KitchenActivityEffects>();
@@ -472,16 +586,17 @@ namespace YesChef.Editor
             effects.trashAnts = CreateMessParticles("Delayed Red Ants", trash.transform.position + new Vector3(0,.04f,-.6f), new Color(.45f,.035f,.025f), 22, root.transform);
             effects.trashFlies = CreateMessParticles("Delayed Black Flies", trash.transform.position + Vector3.up * .8f, new Color(.025f,.02f,.018f), 12, root.transform, .65f);
             ConfigureTrashVisitors(effects.trashAnts, effects.trashFlies);
-            effects.ratEntrances = new[]
-            {
-                CreatePoint(root.transform, "Rat Entrance North West", new Vector3(-5.65f,.02f,4.55f)),
-                CreatePoint(root.transform, "Rat Entrance North East", new Vector3(5.65f,.02f,4.55f)),
-                CreatePoint(root.transform, "Rat Entrance South West", new Vector3(-5.65f,.02f,-4.55f)),
-                CreatePoint(root.transform, "Rat Entrance South East", new Vector3(5.65f,.02f,-4.55f))
-            };
-            effects.ratFood = CreatePoint(root.transform, "Rat Food Target", refrigerator.transform.position + new Vector3(-.8f,.02f,-.6f));
-            effects.rat = AddModel(models["Rat"], "Small Visiting Rat", effects.ratEntrances[0].position, Quaternion.identity, Vector3.one * .85f, root.transform, true);
-            effects.rat.SetActive(false);
+            var flyAudio = new GameObject("Persistent Trash Fly Buzz").AddComponent<AudioSource>();
+            flyAudio.transform.SetParent(root.transform);
+            flyAudio.transform.position = trash.transform.position + Vector3.up * .8f;
+            flyAudio.clip = LoadAudioClip("AMB_Flies.wav");
+            flyAudio.loop = true;
+            flyAudio.playOnAwake = false;
+            flyAudio.spatialBlend = 1f;
+            flyAudio.minDistance = 1.2f;
+            flyAudio.maxDistance = 6f;
+            flyAudio.volume = effects.trashFlyVolume;
+            effects.trashFlyAudio = flyAudio;
         }
 
         private static ParticleSystem CreateMessParticles(string name, Vector3 position, Color color, int maxParticles, Transform parent, float radius = .35f)
@@ -514,6 +629,7 @@ namespace YesChef.Editor
         private static void ConfigureTrashVisitors(ParticleSystem ants, ParticleSystem flies)
         {
             var antMain = ants.main;
+            antMain.loop = true;
             antMain.startLifetime = new ParticleSystem.MinMaxCurve(5f, 9f);
             antMain.startSpeed = new ParticleSystem.MinMaxCurve(.05f, .12f);
             antMain.startSize = new ParticleSystem.MinMaxCurve(.025f, .04f);
@@ -526,6 +642,7 @@ namespace YesChef.Editor
             antVelocity.radial = .04f;
 
             var flyMain = flies.main;
+            flyMain.loop = true;
             flyMain.startLifetime = new ParticleSystem.MinMaxCurve(2.2f, 4.5f);
             flyMain.startSpeed = new ParticleSystem.MinMaxCurve(.12f, .28f);
             flyMain.startSize = new ParticleSystem.MinMaxCurve(.018f, .035f);
@@ -665,11 +782,12 @@ namespace YesChef.Editor
         private static TrashStation CreateTrash(GameObject model)
         {
             var root = CreateStationRoot("Trash Station", new Vector3(4.8f, 0, -3.55f), new Vector3(1.5f, 1.5f, 1.5f));
-            var visual = AddModel(model, "Trash Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
+            var visual = AddModel(model, "Trash Visual", Vector3.zero, Quaternion.Euler(0, -90f, 0), Vector3.one, root.transform);
             CreateStationLabel(root.transform, "Trash Label", new Vector3(0, 1.68f, 0), "TRASH", 30, new Vector2(230, 76));
             var station = root.AddComponent<TrashStation>();
             var animator = root.AddComponent<TrashLidAnimator>();
             animator.lid = FindChild(visual.transform, "TrashLidHinge");
+            animator.openAngle = -72f;
             station.lidAnimator = animator;
             return station;
         }
@@ -705,6 +823,7 @@ namespace YesChef.Editor
                 window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.3f, 0), "Welcome!", 35, new Vector2(500, 170));
                 window.dialogueDisplaySeconds = 6f;
                 window.dialogueBubble = window.dialogueText.transform.parent.gameObject;
+                window.dialogueAnimator = window.dialogueBubble.GetComponent<DialogueBubbleAnimator>();
                 result.Add(window);
             }
             return result;
@@ -721,6 +840,7 @@ namespace YesChef.Editor
             camera.farClipPlane = 120f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.34f, 0.62f, 0.76f);
+            cameraObject.AddComponent<AudioListener>();
             cameraObject.AddComponent<CinemachineBrain>();
 
             var virtualCameraObject = new GameObject("CM Player Follow Camera");
@@ -821,7 +941,7 @@ namespace YesChef.Editor
             var sfxToggle = CreateToggle(pauseCard.transform, "SFX Toggle", "SOUND EFFECTS", new Vector2(145, 48), audio.SfxEnabled);
             UnityEventTools.AddPersistentListener(musicToggle.onValueChanged, audio.SetMusicEnabled);
             UnityEventTools.AddPersistentListener(sfxToggle.onValueChanged, audio.SetSfxEnabled);
-            CreateBrandCredits(pause.transform, new Vector2(0, 22));
+            CreateBrandCredits(pause.transform, new Vector2(0, 122));
 
             var quitConfirmation = CreateScreenOverlay(canvas.transform, "Quit Confirmation Overlay");
             var quitCard = CreatePanel(quitConfirmation.transform, "Quit Confirmation Card", new Vector2(720, 500));
@@ -831,7 +951,7 @@ namespace YesChef.Editor
                 TextAlignmentOptions.Center, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(610, 105), Cream);
             var cancelQuitButton = CreateButton(quitCard.transform, "Keep Cooking Button", "KEEP COOKING", new Vector2(0.5f, 0.5f), new Vector2(-155, -40), new Vector2(280, 68));
             var confirmQuitButton = CreateButton(quitCard.transform, "Confirm Quit Button", "YES, QUIT", new Vector2(0.5f, 0.5f), new Vector2(155, -40), new Vector2(230, 68));
-            CreateBrandCredits(quitConfirmation.transform, new Vector2(0, 22));
+            CreateBrandCredits(quitConfirmation.transform, new Vector2(0, 122));
 
             var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(700, 610));
             CreateScreenText(results.transform, "Game Over", "SERVICE OVER!", 60, TextAlignmentOptions.Center,
@@ -945,36 +1065,20 @@ namespace YesChef.Editor
 
         private static TMP_Text CreateCloudText(Transform parent, string name, Vector3 localPosition, string value, float fontSize, Vector2 size)
         {
-            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard));
+            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard), typeof(DialogueBubbleAnimator));
             canvasObject.transform.SetParent(parent, false);
             canvasObject.transform.localPosition = localPosition;
             canvasObject.transform.localScale = Vector3.one * 0.0052f;
             canvasObject.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
             canvasObject.GetComponent<Canvas>().sortingOrder = 14;
             canvasObject.GetComponent<RectTransform>().sizeDelta = size;
-            var sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
-            foreach (var data in new[]
-                     {
-                         (new Vector2(-170, 4), new Vector2(205, 150)),
-                         (new Vector2(-65, 24), new Vector2(230, 170)),
-                         (new Vector2(55, 22), new Vector2(230, 170)),
-                         (new Vector2(170, 0), new Vector2(205, 150)),
-                         (new Vector2(0, -22), new Vector2(360, 145)),
-                         (new Vector2(180, -102), new Vector2(46, 46)),
-                         (new Vector2(205, -132), new Vector2(25, 25))
-                     })
-            {
-                var puff = new GameObject("Cloud Puff", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                puff.transform.SetParent(canvasObject.transform, false);
-                var rect = puff.GetComponent<RectTransform>();
-                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = data.Item1;
-                rect.sizeDelta = data.Item2;
-                puff.GetComponent<Image>().sprite = sprite;
-                // Fully opaque overlapping puffs read as one cloud silhouette;
-                // translucency created distracting internal overlap lines.
-                puff.GetComponent<Image>().color = new Color(1f, 0.98f, 0.91f, 1f);
-            }
+            var bubble = new GameObject("Single Cloud Silhouette", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            bubble.transform.SetParent(canvasObject.transform, false);
+            StretchToParent(bubble.GetComponent<RectTransform>());
+            var bubbleImage = bubble.GetComponent<Image>();
+            bubbleImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/CustomerSpeechBubble.png");
+            bubbleImage.color = Color.white;
+            bubbleImage.raycastTarget = false;
 
             var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(canvasObject.transform, false);
@@ -985,10 +1089,10 @@ namespace YesChef.Editor
             text.alignment = TextAlignmentOptions.Center;
             text.color = Ink;
             text.richText = true;
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.Normal;
             StretchToParent(text.rectTransform);
-            text.rectTransform.offsetMin = new Vector2(38, 25);
-            text.rectTransform.offsetMax = new Vector2(-38, -20);
+            text.rectTransform.offsetMin = new Vector2(42, 36);
+            text.rectTransform.offsetMax = new Vector2(-62, -32);
             return text;
         }
 
@@ -1035,7 +1139,7 @@ namespace YesChef.Editor
             text.alignment = TextAlignmentOptions.Center;
             text.color = textColor ?? Cream;
             text.richText = true;
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.Normal;
             StretchToParent(text.rectTransform);
             text.rectTransform.offsetMin = new Vector2(18, 12);
             text.rectTransform.offsetMax = new Vector2(-18, -12);
@@ -1311,7 +1415,7 @@ namespace YesChef.Editor
             text.alignment = alignment;
             text.color = color ?? Cream;
             text.richText = true;
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.Normal;
             var rect = text.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;
             rect.pivot = pivot;

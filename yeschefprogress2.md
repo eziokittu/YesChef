@@ -1,5 +1,7 @@
 # YesChef Progress 2
 
+> Historical handoff: the former rodent visitor described below was removed in Progress 6 after the design changed.
+
 Last updated: 2026-09-10  
 Base revision: `95f2aa5f1047ec6221f6ff704fe23250652aaad4`  
 Progress 2 state: implemented and verified locally, but not committed or pushed  
@@ -133,7 +135,7 @@ Keep clip references serialized in the scene builder as well if the audio assets
 
 These are optimized procedural animations for the current separated low-poly mesh parts. They do not require an Animator Controller or humanoid skeleton.
 
-### 11. Trash, spills, insects, and rat
+### 11. Trash, spills, insects, and the former visitor
 
 - [x] The Blender trash model now contains an authored `TrashLidHinge`.
 - [x] Throwing away an item triggers a timed lid-open/lid-close animation.
@@ -141,7 +143,7 @@ These are optimized procedural animations for the current separated low-poly mes
 - [x] Further trash interactions do not stack unbounded insect coroutines.
 - [x] Taking cheese or meat has a 50% spill chance.
 - [x] Cheese and meat use distinct spill colors.
-- [x] A small Blender rat waits two to three seconds, approaches the spill, eats briefly, and returns home.
+- Superseded in Progress 6: the former visitor behavior and model were removed.
 - [x] Chopping creates green floor particles that stop emitting when preparation completes and disappear through bounded particle lifetimes.
 - [x] Cooking creates red meat particles while at least one stove is active.
 - [x] Shared cooking effects use an active-stove counter so one finishing stove does not stop effects for another active stove.
@@ -174,7 +176,6 @@ These are optimized procedural animations for the current separated low-poly mes
 
 New generated models include:
 
-- `Assets/Art/Models/Rat.fbx`
 - `Assets/Art/Models/Bush.fbx`
 
 Updated detailed/animated models include:
@@ -205,7 +206,7 @@ Updated detailed/animated models include:
   - butterflies and frog hopper;
   - kitchen activity effects and trash-lid animation;
   - two exterior spot lights;
-  - rat and bush model imports;
+  - bush model import;
   - all previous gameplay, recipe, customer, refrigerator, camera, UI, and scoring requirements.
 
 ### Windows build
@@ -251,7 +252,7 @@ Before calling Progress 2 fully presentation-approved:
 5. Walk around every station and confirm labels are readable at distance and fade near the chef.
 6. Watch a complete frog route, both fish routes, the delayed one-time snake visit, butterflies, wind sway, and water facets.
 7. Stand idle near the east wall and confirm the camera reveals the marsh without losing the chef.
-8. Trigger chopping, both stoves, fridge spills, a rat visit, trash lid, ants, and flies.
+8. Trigger chopping, both stoves, fridge spills, trash lid, ants, and flies.
 9. Complete a full three-minute match with two-item, three-item, and duplicate orders.
 10. Check 16:10, ultrawide, and a smaller resizable window.
 11. Assign temporary test clips if available and verify playlist sequencing, all SFX hooks, ambience fades, toggles, and the three-second music rule.

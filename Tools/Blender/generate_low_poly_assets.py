@@ -412,14 +412,6 @@ for side in (-1, 1):
                        rotation=(0, math.pi / 2 - side * .26, 0))
 parent_parts(c, root); assets["Butterfly"] = c
 
-c, root = begin_asset("Rat")
-ico(c, "RatBody", (0, 0, 0.16), 0.22, DARK, scale=(1.5, 0.75, 0.65), subdivisions=1)
-ico(c, "RatHead", (-0.29, 0, 0.18), 0.15, DARK, scale=(1.15, 0.8, 0.8), subdivisions=1)
-for y in (-0.10, 0.10):
-    ico(c, f"RatEar_{y}", (-0.29, y, 0.31), 0.07, PINK, scale=(0.5, 1, 1), subdivisions=1)
-torus(c, "RatTail", (0.38, 0, 0.12), 0.30, 0.025, PINK, rotation=(math.pi / 2, 0, 0))
-parent_parts(c, root); assets["Rat"] = c
-
 c, root = begin_asset("Bush")
 for x, y, z, scale in ((0, 0, .34, 1), (-.28, .02, .28, .75), (.28, -.03, .29, .8)):
     ico(c, f"BushLeaf_{x}", (x, y, z), .40, GREEN, scale=(scale, scale, scale * .75), subdivisions=1)
@@ -453,7 +445,6 @@ lineup = [
     ("Fish", (-3.0, -3.6, .35)),
     ("Snake", (-.8, -3.6, .2)),
     ("Butterfly", (1.3, -3.6, .4)),
-    ("Rat", (3.0, -3.6, 0)),
     ("Bush", (4.7, -3.6, 0)),
 ]
 for asset_name, offset in lineup:

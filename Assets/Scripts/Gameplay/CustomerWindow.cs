@@ -59,6 +59,7 @@ namespace YesChef
         public TMP_Text dialogueText;
         public TMP_Text scorePopupText;
         public GameObject dialogueBubble;
+        public DialogueBubbleAnimator dialogueAnimator;
 
         [Header("Timing")]
         [Min(0f)] public float respawnMinimum = 2.5f;
@@ -200,6 +201,7 @@ namespace YesChef
             var awarded = currentOrder.CalculateScore();
             var orderAge = currentOrder.SecondsOpen;
             GameManager.Instance.AddScore(awarded);
+            AudioDirector.Instance?.PlayCustomerHappy();
 
             if (scorePopupText != null)
             {
@@ -232,6 +234,7 @@ namespace YesChef
             avatar.Randomize();
             customerRoot.position = spawnPoint.position;
             customerRoot.gameObject.SetActive(true);
+            AudioDirector.Instance?.PlayCustomerArrival();
             state = VisitState.ArrivingOnRoad;
             stateSeconds = 0f;
         }
@@ -277,6 +280,7 @@ namespace YesChef
         private void ShowDialogue(string message)
         {
             if (dialogueBubble != null) dialogueBubble.SetActive(true);
+            dialogueAnimator?.PlayBounce();
             if (dialogueText != null) dialogueText.text = message;
             bubbleVisibleSeconds = dialogueDisplaySeconds;
         }

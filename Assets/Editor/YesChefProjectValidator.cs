@@ -68,6 +68,10 @@ namespace YesChef.Editor
             Require(manager.stoves != null && manager.stoves.Length == 2, "Exactly two separate stove stations are required.");
             Require(manager.stoves.All(stove => stove.itemAnchor != null && stove.progressFill != null && stove.flameParticles != null && stove.cookingLight != null),
                 "A stove is missing its cooking anchor, progress UI, flame particles, or pulsing light.");
+            Require(manager.stoves.All(stove => stove.labelFader != null),
+                "Every stove label needs the same proximity fading used by the other stations.");
+            Require(manager.stoves.All(stove => stove.labelFader.nearbyAlpha <= .05f),
+                "Stove labels must become nearly invisible beside the chef.");
             Require(manager.stoves.All(stove => stove.flameParticles.GetComponent<ParticleSystemRenderer>().sharedMaterial != null &&
                                                 stove.flameParticles.GetComponent<ParticleSystemRenderer>().sharedMaterial.shader.name != "Hidden/InternalErrorShader"),
                 "Every stove flame needs a valid particle material.");
@@ -79,6 +83,9 @@ namespace YesChef.Editor
             Require(manager.instructionsPanel != null && manager.pausePanel != null && manager.quitConfirmationPanel != null &&
                     manager.resultsPanel != null && manager.pauseDetailsText != null, "Game-state panels are incomplete.");
             Require(UnityEngine.Object.FindFirstObjectByType<CinemachineBrain>() != null, "The Main Camera needs a Cinemachine Brain.");
+            var audioListeners = UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Require(audioListeners.Length == 1 && audioListeners[0].gameObject == Camera.main.gameObject && audioListeners[0].enabled,
+                "Exactly one enabled AudioListener must be attached to the Main Camera.");
             var virtualCamera = UnityEngine.Object.FindFirstObjectByType<CinemachineVirtualCamera>();
             Require(virtualCamera != null && virtualCamera.Follow == manager.player.transform && Camera.main != null && !Camera.main.orthographic,
                 "A perspective Cinemachine camera must follow the player.");
@@ -117,23 +124,56 @@ namespace YesChef.Editor
             Require(UnityEngine.Object.FindFirstObjectByType<AudioDirector>(FindObjectsInactive.Include) != null &&
                     UnityEngine.Object.FindObjectsByType<AmbientAudioZone>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 2,
                 "Persistent music/SFX routing and both exterior ambience zones are required.");
+            var audio = UnityEngine.Object.FindFirstObjectByType<AudioDirector>(FindObjectsInactive.Include);
+            Require(audio.musicTracks?.Length == 2 && audio.musicTracks.All(clip => clip != null && clip.length >= 30f) &&
+                    new[] { audio.chopping, audio.cooking, audio.fridgeOpen, audio.fridgeClose, audio.foodPrepared,
+                            audio.newOrder, audio.orderItemReceived, audio.customerArrival, audio.customerHappy,
+                            audio.trash }.All(clip => clip != null),
+                "Both calm music tracks and all kitchen/customer sound effects must be assigned.");
+            Require(audio.musicSource != null && audio.sfxSource != null && audio.musicVolume >= .7f &&
+                    audio.sfxVolume < audio.musicVolume && audio.sfxVolume <= .25f &&
+                    audio.musicSource.spatialBlend == 0f && audio.sfxSource.spatialBlend == 0f,
+                "Music must be clearly audible and every kitchen sound effect must remain quieter than the music bed.");
+            Require(UnityEngine.Object.FindObjectsByType<AmbientAudioZone>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                    .All(zone => zone.continuousLoops?.Length == 1 &&
+                                 zone.continuousRelativeVolumes?.Length == zone.continuousLoops.Length &&
+                                 zone.randomOneShots?.Length >= 2 &&
+                                 zone.randomRelativeVolumes?.Length == zone.randomOneShots.Length &&
+                                 zone.minimumIntervals?.Length == zone.randomOneShots.Length &&
+                                 zone.maximumIntervals?.Length == zone.randomOneShots.Length &&
+                                 zone.maximumVolume < audio.musicVolume &&
+                                 zone.continuousLoops.All(source => source != null && source.clip != null && source.loop) &&
+                                 zone.randomOneShots.All(source => source != null && source.clip != null && !source.loop)),
+                "Exterior ambience needs one soft loop plus independently scheduled wildlife details per zone.");
             Require(UnityEngine.Object.FindObjectsByType<Toggle>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 2,
                 "Pause UI needs music and sound-effect toggles.");
             Require(UnityEngine.Object.FindObjectsByType<WindSway>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 15 &&
                     UnityEngine.Object.FindObjectsByType<WaterSurfaceAnimator>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 50,
                 "Garden wind motion and faceted water movement are incomplete.");
             Require(UnityEngine.Object.FindObjectsByType<WaterSurfaceAnimator>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-                    .All(water => water.waveHeight >= .08f && water.tiltAngle > 0f),
+                    .All(water => water.waveHeight >= .1f && water.tiltAngle > 1f && water.colorShift > 0f),
                 "Water facets need visible vertical waves and gentle surface tilt.");
+            Require(UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Count(item => item.name == "Tall Grass Blade") >= 100 &&
+                    UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Count(item => item.name == "Patchy Garden Ground") >= 6 &&
+                    UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Count(item => item.name == "Low Poly Lotus Leaf") >= 10 &&
+                    GameObject.Find("Fallen Pond Edge Log") != null &&
+                    GameObject.Find("Fallen Pond Edge Log").transform.position.x < 8f,
+                "Patchy grass, tall blades, extra round pond leaves, or the edge log are missing.");
             Require(UnityEngine.Object.FindObjectsByType<ButterflyFlight>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 0 &&
                     UnityEngine.Object.FindObjectsByType<FrogHopper>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 0 &&
                     UnityEngine.Object.FindObjectsByType<WildlifeMover>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 0,
                 "Fish, snake, frog, and butterfly visuals must be completely absent while their audio slots remain available.");
             var activityEffects = UnityEngine.Object.FindFirstObjectByType<KitchenActivityEffects>(FindObjectsInactive.Include);
             Require(activityEffects != null && UnityEngine.Object.FindFirstObjectByType<TrashLidAnimator>(FindObjectsInactive.Include) != null,
-                "Optimized kitchen mess, rat, insects, or trash-lid mechanics are missing.");
-            Require(activityEffects.rat != null && activityEffects.ratEntrances?.Length == 4 && activityEffects.ratFood != null,
-                "The cheese-seeking rat must be able to enter from all four kitchen corners.");
+                "Optimized kitchen mess, insects, or trash-lid mechanics are missing.");
+            Require(activityEffects.trashAnts.main.loop && activityEffects.trashFlies.main.loop &&
+                    activityEffects.trashFlyAudio != null && activityEffects.trashFlyAudio.clip != null &&
+                    activityEffects.trashFlyAudio.loop && !activityEffects.trashFlyAudio.playOnAwake &&
+                    activityEffects.trashFlyVolume < audio.musicVolume,
+                "Trash ants, flies, and proximity buzz must persist after the first discard until a reset.");
             Require(new[] { activityEffects.cheeseCrumbs, activityEffects.meatCrumbs, activityEffects.choppingSpill,
                             activityEffects.meatSpill, activityEffects.trashAnts, activityEffects.trashFlies }
                     .All(particles => particles != null && !particles.main.playOnAwake),
@@ -143,6 +183,24 @@ namespace YesChef.Editor
                         .Count(item => item.name == "Symmetric Floor Tile") == 63 &&
                     GameObject.Find("North Wall Wainscot") != null && GameObject.Find("Decorative Wall Diamond") != null,
                 "The symmetric tiled floor and decorative wall treatment are missing.");
+            var trashAnimator = UnityEngine.Object.FindFirstObjectByType<TrashLidAnimator>(FindObjectsInactive.Include);
+            Require(trashAnimator != null && trashAnimator.lid != null && trashAnimator.openAngle < 0f &&
+                    trashAnimator.lid.position.x > trashAnimator.transform.position.x,
+                "The rotated trash lid must open upward from its right-side hinge.");
+            Require(UnityEngine.Object.FindObjectsByType<DialogueBubbleAnimator>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 4 &&
+                    !UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Any(item => item.name == "Cloud Puff") &&
+                    UnityEngine.Object.FindObjectsByType<CustomerWindow>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .All(window => window.dialogueAnimator != null),
+                "Each customer needs one clean-outline speech bubble and bounce animator.");
+            var pauseCredits = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(item => item.name == "Glitchbong Contact Link" && item.parent.name == "Pause Overlay");
+            Require(pauseCredits != null && pauseCredits.anchoredPosition.y >= 170f,
+                "Pause credits must sit above the persistent controls strip.");
+            var quitCredits = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(item => item.name == "Glitchbong Contact Link" && item.parent.name == "Quit Confirmation Overlay");
+            Require(quitCredits != null && quitCredits.anchoredPosition.y >= 170f,
+                "Quit-confirmation credits must sit above the persistent controls strip.");
             Require(UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None).Count(light => light.type == LightType.Spot) >= 8,
                 "Four daylight and four night window light cones are required.");
             Require(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset") != null,
@@ -179,7 +237,7 @@ namespace YesChef.Editor
             {
                 "Refrigerator", "ChoppingTable", "SingleStove", "TrashBin", "Chef", "Customer",
                 "VegetableRaw", "VegetableChopped", "Cheese", "MeatRaw", "MeatCooked",
-                "Tree", "Flower", "Lotus", "Rat", "Bush"
+                "Tree", "Flower", "Lotus", "Bush"
             };
             foreach (var model in expectedModels)
             {
