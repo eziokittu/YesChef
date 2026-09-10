@@ -57,8 +57,13 @@ namespace YesChef.Editor
             Require(manager.windows != null && manager.windows.Length == 4, "Exactly four customer windows are required.");
             Require(manager.windows.All(window => window.orderText != null && window.dialogueText != null && window.scorePopupText != null), "A customer table UI reference is missing.");
             Require(manager.windows.All(window => window.avatar != null && window.customerRoot != null && window.spawnPoint != null && window.servicePoint != null), "Customer models or walking routes are incomplete.");
-            Require(UnityEngine.Object.FindObjectsByType<CharacterIdleMotion>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 5,
-                "The chef and all four customers need subtle idle motion.");
+            var characterMotions = UnityEngine.Object.FindObjectsByType<CharacterIdleMotion>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Require(characterMotions.Length >= 5 && characterMotions.All(motion =>
+                    motion.GetComponentsInChildren<Transform>(true).Count(part => part.name.StartsWith("ArmPivot_")) == 2 &&
+                    motion.GetComponentsInChildren<Transform>(true).Count(part => part.name.StartsWith("LegPivot_")) == 2),
+                "The chef and all four customers need animation roots with two shoulder and two hip pivots.");
+            Require(manager.player.characterMotion != null,
+                "The chef needs an assigned motion controller for idle, walking, and fridge-reaching animation.");
             Require(manager.choppingTable != null,
                 "Chopping table reference is missing from GameManager.");
             Require(manager.choppingTable.statusText != null,
@@ -191,8 +196,10 @@ namespace YesChef.Editor
                     !UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                         .Any(item => item.name == "Cloud Puff") &&
                     UnityEngine.Object.FindObjectsByType<CustomerWindow>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-                        .All(window => window.dialogueAnimator != null),
-                "Each customer needs one clean-outline speech bubble and bounce animator.");
+                        .All(window => window.dialogueAnimator != null &&
+                                       window.dialogueText.rectTransform.parent.GetComponent<RectTransform>().sizeDelta.y >= 200f &&
+                                       window.dialogueText.transform.parent.GetComponentInChildren<Image>().preserveAspect),
+                "Each customer needs one unclipped, aspect-preserved speech bubble and bounce animator.");
             var pauseCredits = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .FirstOrDefault(item => item.name == "Glitchbong Contact Link" && item.parent.name == "Pause Overlay");
             Require(pauseCredits != null && pauseCredits.anchoredPosition.y >= 170f,

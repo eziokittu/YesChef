@@ -9,10 +9,12 @@ namespace YesChef
         public float moveSpeed = 5.5f;
         public float interactionRadius = 1.65f;
         public Transform visualRoot;
+        public CharacterIdleMotion characterMotion;
 
         public PlayerInventory Inventory { get; private set; }
         public Vector3 StartPosition { get; private set; }
         public bool IsMoving { get; private set; }
+        public bool IsActionLocked { get; private set; }
 
         private CharacterController characterController;
         private IInteractable currentInteractable;
@@ -44,15 +46,24 @@ namespace YesChef
                 return;
             }
 
+            if (IsActionLocked)
+            {
+                IsMoving = false;
+                characterController.SimpleMove(Vector3.zero);
+                return;
+            }
+
             Move();
             FindInteraction();
 
-            if (currentInteractable is RefrigeratorStation refrigerator)
+            if (currentInteractable is RefrigeratorStation refrigerator && refrigerator.menu != null && refrigerator.menu.IsOpen)
             {
                 if (Input.GetKeyDown(KeyCode.Alpha1)) refrigerator.TryTake(this, IngredientType.Vegetable);
                 if (Input.GetKeyDown(KeyCode.Alpha2)) refrigerator.TryTake(this, IngredientType.Cheese);
                 if (Input.GetKeyDown(KeyCode.Alpha3)) refrigerator.TryTake(this, IngredientType.Meat);
             }
+
+            if (IsActionLocked) return;
 
             if (Input.GetKeyDown(KeyCode.E) && currentInteractable != null)
             {
@@ -63,11 +74,26 @@ namespace YesChef
         public void ResetPlayer()
         {
             Inventory.Clear();
+            IsActionLocked = false;
             characterController.enabled = false;
             transform.position = StartPosition;
             transform.rotation = Quaternion.identity;
             characterController.enabled = true;
         }
+
+        public void BeginFridgeAction(Vector3 fridgePosition)
+        {
+            IsActionLocked = true;
+            IsMoving = false;
+            var direction = fridgePosition - transform.position;
+            direction.y = 0f;
+            if (visualRoot != null && direction.sqrMagnitude > 0.01f)
+                visualRoot.rotation = Quaternion.LookRotation(direction, Vector3.up);
+        }
+
+        public void PlayFridgeReach(float duration) => characterMotion?.PlayReach(duration);
+
+        public void EndFridgeAction() => IsActionLocked = false;
 
         private void Move()
         {

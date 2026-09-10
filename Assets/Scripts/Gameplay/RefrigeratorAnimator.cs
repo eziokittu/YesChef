@@ -18,6 +18,9 @@ namespace YesChef
         private bool shouldOpen;
         private bool lastRequestedOpen;
 
+        public float OpenAmount => openness;
+        public bool IsPickupReady => shouldOpen && openness >= 0.78f;
+
         private void Awake()
         {
             if (doorHinge != null) closedRotation = doorHinge.localRotation;

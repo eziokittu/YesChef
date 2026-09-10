@@ -680,13 +680,16 @@ namespace YesChef.Editor
             var player = root.AddComponent<PlayerController>();
             var facingRoot = new GameObject("Chef Facing Root").transform;
             facingRoot.SetParent(root.transform, false);
-            var visual = AddModel(model, "Chef Visual", Vector3.zero, Quaternion.identity, Vector3.one * 0.86f, facingRoot);
-            var idle = visual.AddComponent<CharacterIdleMotion>();
-            idle.player = player;
+            var motionRoot = new GameObject("Chef Motion Root").transform;
+            motionRoot.SetParent(facingRoot, false);
+            AddModel(model, "Chef Visual", Vector3.zero, Quaternion.identity, Vector3.one * 0.86f, motionRoot);
+            var motion = motionRoot.gameObject.AddComponent<CharacterIdleMotion>();
+            motion.player = player;
             player.visualRoot = facingRoot;
+            player.characterMotion = motion;
 
             var hand = new GameObject("Hand Anchor").transform;
-            hand.SetParent(facingRoot, false);
+            hand.SetParent(motionRoot, false);
             hand.localPosition = new Vector3(0, 1.42f, 0.62f);
             inventory.handAnchor = hand;
             return player;
@@ -805,8 +808,10 @@ namespace YesChef.Editor
                 var customerRoot = new GameObject("Customer").transform;
                 customerRoot.SetParent(root.transform);
                 customerRoot.position = new Vector3(-6.75f, 0, z);
-                var customerVisual = AddModel(models["Customer"], "Customer Visual", Vector3.zero, Quaternion.identity, Vector3.one * 0.85f, customerRoot);
-                customerVisual.AddComponent<CharacterIdleMotion>();
+                var motionRoot = new GameObject("Customer Motion Root").transform;
+                motionRoot.SetParent(customerRoot, false);
+                AddModel(models["Customer"], "Customer Visual", Vector3.zero, Quaternion.identity, Vector3.one * 0.85f, motionRoot);
+                motionRoot.gameObject.AddComponent<CharacterIdleMotion>();
                 var avatar = customerRoot.gameObject.AddComponent<CustomerAvatar>();
 
                 var spawnZ = index % 2 == 0 ? 12f : -12f;
@@ -820,7 +825,7 @@ namespace YesChef.Editor
                 window.exitPoint = CreatePoint(root.transform, "Exit Point", new Vector3(-9.2f, 0, exitZ));
                 window.orderText = CreateWorldText(root.transform, "Table Order Card", new Vector3(0.3f, 1.92f, 0), "ORDER", 32, new Vector2(570, 125));
                 window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(0.3f, 3.05f, 0), string.Empty, 52, new Vector2(420, 100));
-                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.3f, 0), "Welcome!", 35, new Vector2(500, 170));
+                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.35f, 0), "Welcome!", 35, new Vector2(500, 208));
                 window.dialogueDisplaySeconds = 6f;
                 window.dialogueBubble = window.dialogueText.transform.parent.gameObject;
                 window.dialogueAnimator = window.dialogueBubble.GetComponent<DialogueBubbleAnimator>();
@@ -1079,6 +1084,7 @@ namespace YesChef.Editor
             bubbleImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/CustomerSpeechBubble.png");
             bubbleImage.color = Color.white;
             bubbleImage.raycastTarget = false;
+            bubbleImage.preserveAspect = true;
 
             var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(canvasObject.transform, false);
@@ -1091,8 +1097,8 @@ namespace YesChef.Editor
             text.richText = true;
             text.textWrappingMode = TextWrappingModes.Normal;
             StretchToParent(text.rectTransform);
-            text.rectTransform.offsetMin = new Vector2(42, 36);
-            text.rectTransform.offsetMax = new Vector2(-62, -32);
+            text.rectTransform.offsetMin = new Vector2(42, 48);
+            text.rectTransform.offsetMax = new Vector2(-70, -52);
             return text;
         }
 

@@ -44,13 +44,14 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Animated openable refrigerator with stocked shelves and a fading cool interior light
 - Three-minute timer, instructions, translucent pause screen, quit confirmation, restart, current score, persistent high score, and linked credits
 - Persistent bottom control/guidance strip plus a scrollable, clickable refrigerator catalogue
-- Physical customers with randomized names, clothing, skin tones and hairstyles
+- Physical customers with randomized names, clothing, skin tones, hairstyles, and visible idle/walking animation
 - Timed rounded customer speech clouds above their heads, serving-table order cards and fading score popups
 - Outdoor road and walking customer routes, garden/flowers, tall windowed building, and animated faceted marsh with lotus plants
 - Four independent daylight window cones and four outward-facing night spill lights
 - Event-only kitchen mess effects plus delayed, persistent trash ants/flies with quiet spatial buzzing
 - Symmetric neutral checker tiles plus patterned wall trim and motifs
 - Original two-track calm felt-piano soundtrack, complete kitchen/customer SFX, dynamically timed exterior ambience, and proximity fly buzz
+- Animated refrigerator pickup: the door opens with sound, the chef bends and reaches inside, the item appears in hand, and the door closes with sound
 - Clean single-silhouette customer speech bubbles with a short entrance bounce
 - Polished TextMesh Pro HUD, held-item display, proximity-fading station labels and activity-only progress bars
 

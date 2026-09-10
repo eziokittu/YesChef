@@ -125,6 +125,16 @@ def empty(collection, name, location):
     return obj
 
 
+def pivoted_cylinder(collection, pivot_name, part_name, pivot_location, part_location,
+                     radius, depth, mat, vertices=8):
+    """Create an animation-ready limb whose origin is at its shoulder or hip."""
+    pivot = empty(collection, pivot_name, pivot_location)
+    part = cylinder(collection, part_name, part_location, radius, depth, mat, vertices=vertices)
+    part.parent = pivot
+    part.matrix_parent_inverse = pivot.matrix_world.inverted()
+    return pivot, part
+
+
 def export_asset(name, collection):
     bpy.ops.object.select_all(action="DESELECT")
     for obj in collection.all_objects:
@@ -257,10 +267,12 @@ ico(c, "Head", (0, 0, 1.70), 0.38, SKIN, subdivisions=2)
 cylinder(c, "HatBand", (0, 0, 2.03), 0.36, 0.25, WHITE, vertices=12)
 for x, y in ((-0.22, 0), (0, 0.08), (0.22, 0)):
     ico(c, f"HatPuff_{x}", (x, y, 2.22), 0.25, WHITE, scale=(1, 1, 0.85), subdivisions=1)
-for x in (-0.50, 0.50):
-    cylinder(c, f"Arm_{x}", (x, 0, 0.92), 0.11, 0.72, SKIN, vertices=8, rotation=(0, math.pi / 2, 0))
-for x in (-0.20, 0.20):
-    cylinder(c, f"Leg_{x}", (x, 0, 0.24), 0.14, 0.48, BLUE, vertices=8)
+for side, x in (("Left", -0.43), ("Right", 0.43)):
+    pivoted_cylinder(c, f"ArmPivot_{side}", f"Arm_{side}", (x, 0, 1.22),
+                     (x, 0, 0.92), 0.11, 0.60, SKIN)
+for side, x in (("Left", -0.20), ("Right", 0.20)):
+    pivoted_cylinder(c, f"LegPivot_{side}", f"Leg_{side}", (x, 0, 0.50),
+                     (x, 0, 0.24), 0.14, 0.52, BLUE)
 box(c, "Apron", (0, -0.38, 0.86), (0.50, 0.06, 0.72), WHITE, 0.025)
 parent_parts(c, root); assets["Chef"] = c
 
@@ -299,10 +311,12 @@ parent_parts(c, root); assets["MeatCooked"] = c
 c, root = begin_asset("Customer")
 cylinder(c, "ShirtBody", (0, 0, 0.88), 0.40, 1.05, BLUE, vertices=10)
 ico(c, "SkinHead", (0, 0, 1.66), 0.37, SKIN, subdivisions=2)
-for x in (-0.48, 0.48):
-    cylinder(c, f"SkinArm_{x}", (x, 0, 0.92), 0.11, 0.65, SKIN, vertices=8, rotation=(0, math.pi / 2, 0))
-for x in (-0.19, 0.19):
-    cylinder(c, f"PantsLeg_{x}", (x, 0, 0.25), 0.14, 0.50, PURPLE, vertices=8)
+for side, x in (("Left", -0.43), ("Right", 0.43)):
+    pivoted_cylinder(c, f"ArmPivot_{side}", f"SkinArm_{side}", (x, 0, 1.20),
+                     (x, 0, 0.92), 0.11, 0.56, SKIN)
+for side, x in (("Left", -0.19), ("Right", 0.19)):
+    pivoted_cylinder(c, f"LegPivot_{side}", f"PantsLeg_{side}", (x, 0, 0.51),
+                     (x, 0, 0.25), 0.14, 0.52, PURPLE)
 cylinder(c, "HairStyle_Cap", (0, 0, 1.91), 0.34, 0.18, BLACK, vertices=10)
 ico(c, "HairStyle_Bun", (0, 0.08, 2.03), 0.22, BLACK, subdivisions=1)
 for x in (-0.17, 0, 0.17):

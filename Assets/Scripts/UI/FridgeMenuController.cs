@@ -33,8 +33,13 @@ namespace YesChef
 
         public void Close()
         {
-            if (panel != null) panel.SetActive(false);
+            HidePanel();
             refrigerator?.SetOpen(false);
+        }
+
+        public void HidePanel()
+        {
+            if (panel != null) panel.SetActive(false);
         }
 
         public void Toggle(PlayerController interactingPlayer)
@@ -50,7 +55,7 @@ namespace YesChef
         private void Take(IngredientType type)
         {
             if (player == null || refrigerator == null) return;
-            if (refrigerator.TryTake(player, type)) Close();
+            refrigerator.TryTake(player, type);
         }
     }
 }

@@ -34,6 +34,7 @@ This project is deliberately split into small scripts with one clear job each. T
 | Station scripts | Accept, process, return, or discard ingredients; each stove also drives its own flame/light effect |
 | `CustomerWindow` | Customer arrival/departure, order delivery, serving card, timed dialogue and score feedback |
 | `CustomerAvatar` | Chooses from 50 names and randomizes skin, clothes and hairstyle |
+| `CharacterIdleMotion` | Animates chef/customer motion roots with idle breathing/sway, route-aware walking, pivoted limbs, and the chef's fridge reach pose |
 | `FridgeMenuController` | Opens the scrollable screen catalogue and routes button choices to the refrigerator |
 | `RefrigeratorAnimator` | Smooth Blender-hinge door animation and synchronized interior-light fade |
 | `WorldLabelFader` | Softens station labels near the chef and hides them while a station surface is occupied |
@@ -67,7 +68,7 @@ The stations use the same pattern: validate the held item, transfer ownership fr
 
 The real Camera contains the scene's single enabled `AudioListener` and a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. `AdaptiveCinemachineCamera` waits for three idle seconds before slowly changing the perspective field of view, keeping camera responsibilities separate from movement.
 
-The chef and customer hierarchy deliberately separates facing from model-axis correction. Movement rotates a Unity Y-up parent while the Blender mesh keeps its import correction on a child. `CharacterIdleMotion` also runs on that child, so neither movement nor animation can make a character fall onto its side.
+The chef and customer hierarchy separates facing/route movement, procedural posing, and Blender model-axis correction. A dedicated motion root sits above the imported visual, while Blender-authored `ArmPivot_*` and `LegPivot_*` transforms provide correct shoulder/hip rotation. This prevents navigation rotation and animation from fighting each other. Refrigerator selection is asynchronous: shortcuts are accepted only from the open catalogue, wait for visible door openness, lock the chef for a short reach pose, create the ingredient midway, then close and unlock.
 
 ## Editing common rules
 

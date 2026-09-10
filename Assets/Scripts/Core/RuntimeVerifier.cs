@@ -61,6 +61,14 @@ namespace YesChef
             {
                 StartCoroutine(ProbeKitchenEffectsAndQuit());
             }
+            else if (Array.IndexOf(arguments, "-yeschef-character-animation-probe") >= 0)
+            {
+                StartCoroutine(ProbeCharacterAnimationAndQuit());
+            }
+            else if (Array.IndexOf(arguments, "-yeschef-quit-modal-probe") >= 0)
+            {
+                StartCoroutine(ProbeQuitModalAndQuit());
+            }
             else if (Array.IndexOf(arguments, "-yeschef-capture") >= 0)
             {
                 StartCoroutine(CaptureAndQuit(false, false, false, false, false, false, false, false));
@@ -91,16 +99,23 @@ namespace YesChef
                 GameManager.Instance.fridgeMenu.closeDistance = 100f;
                 GameManager.Instance.fridgeMenu.Open(GameManager.Instance.player);
                 var refrigerator = GameManager.Instance.fridgeMenu.refrigerator;
-                refrigerator.TryTake(GameManager.Instance.player, IngredientType.Cheese);
-                refrigerator.Interact(GameManager.Instance.player);
-                Debug.Log($"YES_CHEF_FRIDGE_E_CLOSE_WITH_HELD_ITEM: {!GameManager.Instance.fridgeMenu.IsOpen}");
+                var queued = refrigerator.TryTake(GameManager.Instance.player, IngredientType.Cheese);
+                yield return new WaitForSecondsRealtime(.58f);
+                Debug.Log($"YES_CHEF_FRIDGE_REACH: queued={queued}, door={refrigerator.animator.OpenAmount:0.00}, " +
+                          $"reaching={GameManager.Instance.player.characterMotion.IsPerformingAction}, " +
+                          $"held={GameManager.Instance.player.Inventory.HasItem}");
+                yield return new WaitForSecondsRealtime(.68f);
+                Debug.Log($"YES_CHEF_FRIDGE_PICKUP_COMPLETE: held={GameManager.Instance.player.Inventory.HasItem}, " +
+                          $"locked={GameManager.Instance.player.IsActionLocked}, menu={GameManager.Instance.fridgeMenu.IsOpen}");
                 GameManager.Instance.player.Inventory.Clear();
                 GameManager.Instance.fridgeMenu.Open(GameManager.Instance.player);
             }
             if (lightStove)
             {
                 var game = GameManager.Instance;
+                game.fridgeMenu.Open(game.player);
                 game.fridgeMenu.refrigerator.TryTake(game.player, IngredientType.Meat);
+                yield return new WaitForSecondsRealtime(1.30f);
                 game.stoves[0].Interact(game.player);
             }
             if (pauseMenu) GameManager.Instance.TogglePause();
@@ -214,6 +229,62 @@ namespace YesChef
             Debug.Log($"YES_CHEF_TRASH_VISITORS_PERSIST: ants={effects.trashAnts.particleCount}, flies={effects.trashFlies.particleCount}, " +
                       $"buzz={effects.trashFlyAudio != null && effects.trashFlyAudio.isPlaying}");
             Application.Quit(0);
+        }
+
+        private static IEnumerator ProbeCharacterAnimationAndQuit()
+        {
+            yield return null;
+            GameManager.Instance.BeginGame();
+            var motions = FindObjectsByType<CharacterIdleMotion>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var chefMotion = GameManager.Instance.player.characterMotion;
+            var idleStart = chefMotion.transform.localPosition;
+            yield return new WaitForSeconds(.35f);
+            var idleDelta = Vector3.Distance(idleStart, chefMotion.transform.localPosition);
+
+            var observedCustomerWalk = false;
+            var deadline = Time.time + 9f;
+            while (Time.time < deadline)
+            {
+                foreach (var motion in motions)
+                {
+                    if (motion.player == null && motion.IsMoving) observedCustomerWalk = true;
+                }
+                yield return null;
+            }
+
+            Debug.Log($"YES_CHEF_CHARACTER_ANIMATION: count={motions.Length}, idleDelta={idleDelta:0.000}, " +
+                      $"customerWalk={observedCustomerWalk}, armPivots={chefMotion.ArmPivotCount}, legPivots={chefMotion.LegPivotCount}");
+            Application.Quit(motions.Length >= 5 && idleDelta > .005f && observedCustomerWalk &&
+                             chefMotion.ArmPivotCount == 2 && chefMotion.LegPivotCount == 2 ? 0 : 1);
+        }
+
+        private static IEnumerator ProbeQuitModalAndQuit()
+        {
+            yield return null;
+            var game = GameManager.Instance;
+
+            game.BeginGame();
+            game.TogglePause();
+            game.RequestQuit();
+            var pauseHidden = !game.pausePanel.activeSelf && game.quitConfirmationPanel.activeSelf;
+            game.CancelQuit();
+            var pauseRestored = game.Phase == GamePhase.Paused && game.pausePanel.activeSelf &&
+                                !game.quitConfirmationPanel.activeSelf;
+
+            game.TogglePause();
+            game.matchSeconds = .02f;
+            game.BeginGame();
+            yield return new WaitForSecondsRealtime(.08f);
+            var reachedResults = game.Phase == GamePhase.Results && game.resultsPanel.activeSelf;
+            game.RequestQuit();
+            var resultsHidden = !game.resultsPanel.activeSelf && game.quitConfirmationPanel.activeSelf;
+            game.CancelQuit();
+            var resultsRestored = game.Phase == GamePhase.Results && game.resultsPanel.activeSelf &&
+                                  !game.quitConfirmationPanel.activeSelf;
+
+            Debug.Log($"YES_CHEF_QUIT_MODAL: pauseHidden={pauseHidden}, pauseRestored={pauseRestored}, " +
+                      $"reachedResults={reachedResults}, resultsHidden={resultsHidden}, resultsRestored={resultsRestored}");
+            Application.Quit(pauseHidden && pauseRestored && reachedResults && resultsHidden && resultsRestored ? 0 : 1);
         }
     }
 }

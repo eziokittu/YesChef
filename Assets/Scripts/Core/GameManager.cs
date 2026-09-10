@@ -143,6 +143,7 @@ namespace YesChef
             Phase = GamePhase.ConfirmingQuit;
             Time.timeScale = 0f;
             fridgeMenu?.Close();
+            SetPrimaryPanelVisibility(GamePhase.ConfirmingQuit);
             if (quitConfirmationPanel != null) quitConfirmationPanel.SetActive(true);
         }
 
@@ -151,7 +152,15 @@ namespace YesChef
             if (Phase != GamePhase.ConfirmingQuit) return;
             Phase = phaseBeforeQuit;
             if (quitConfirmationPanel != null) quitConfirmationPanel.SetActive(false);
+            SetPrimaryPanelVisibility(Phase);
             Time.timeScale = Phase == GamePhase.Playing ? 1f : 0f;
+        }
+
+        private void SetPrimaryPanelVisibility(GamePhase visiblePhase)
+        {
+            if (instructionsPanel != null) instructionsPanel.SetActive(visiblePhase == GamePhase.Instructions);
+            if (pausePanel != null) pausePanel.SetActive(visiblePhase == GamePhase.Paused);
+            if (resultsPanel != null) resultsPanel.SetActive(visiblePhase == GamePhase.Results);
         }
 
         private void ShowInstructions()
