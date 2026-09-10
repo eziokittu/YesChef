@@ -46,7 +46,10 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Persistent bottom control/guidance strip plus a scrollable, clickable refrigerator catalogue
 - Physical customers with randomized names, clothing, skin tones and hairstyles
 - Timed rounded customer speech clouds above their heads, serving-table order cards and fading score popups
-- Outdoor road and walking customer routes, garden/flowers, tall windowed building, and marsh with lotus, frogs, fish and rare snakes
+- Outdoor road and walking customer routes, garden/flowers, tall windowed building, and animated faceted marsh with lotus plants
+- Four independent daylight window cones and four outward-facing night spill lights
+- Event-only kitchen mess effects, delayed trash ants/flies, and a cheese-seeking rat that can enter from any corner
+- Symmetric neutral checker tiles plus patterned wall trim and motifs
 - Polished TextMesh Pro HUD, held-item display, proximity-fading station labels and activity-only progress bars
 
 ## Understanding the code
@@ -59,7 +62,8 @@ Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). It explains the compl
 - Blender generation script: `Tools/Blender/generate_low_poly_assets.py`
 - Unity-ready FBXs: `Assets/Art/Models/`
 - Included assets: chef, refrigerator, chopping table, stove, trash bin, customer window, floor/wall modules, raw/chopped vegetables, cheese, and raw/cooked meat
-- Additional Blender assets: single stove, customizable customer, trees, flowers, lotus, frogs, fish and snake
+- Additional Blender assets used in the scene: single stove, customizable customer, trees, flowers, lotus, bush, and rat
+- Frog, fish, snake, and butterfly audio slots remain available, but their visual models are intentionally not instantiated
 
 Regenerate the models with Blender 5.2+ from the repository root:
 

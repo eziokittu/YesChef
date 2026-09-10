@@ -23,6 +23,7 @@ namespace YesChef
 
         private IngredientItem item;
         private float secondsRemaining;
+        private bool completionSignalled;
 
         private void Update()
         {
@@ -57,9 +58,11 @@ namespace YesChef
 
         public void ResetStation()
         {
+            if (item != null && item.State == PreparationState.Raw) KitchenActivityEffects.Instance?.OnCookingFinished();
             if (item != null) Destroy(item.gameObject);
             item = null;
             secondsRemaining = 0f;
+            completionSignalled = false;
             UpdateEffects();
             RefreshDisplay();
         }
@@ -68,7 +71,16 @@ namespace YesChef
         {
             if (item == null || item.State != PreparationState.Raw) return;
             secondsRemaining = Mathf.Max(0f, secondsRemaining - Time.deltaTime);
-            if (secondsRemaining <= 0f) item.SetPrepared();
+            if (secondsRemaining <= 0f)
+            {
+                item.SetPrepared();
+                if (!completionSignalled)
+                {
+                    completionSignalled = true;
+                    AudioDirector.Instance?.PlayPrepared();
+                    KitchenActivityEffects.Instance?.OnCookingFinished();
+                }
+            }
         }
 
         private void TryPlaceMeat(PlayerController player)
@@ -76,6 +88,9 @@ namespace YesChef
             if (!IsHoldingRawMeat(player)) return;
             item = player.Inventory.ReleaseTo(itemAnchor, 0.48f);
             secondsRemaining = cookingSeconds;
+            completionSignalled = false;
+            AudioDirector.Instance?.PlayCooking();
+            KitchenActivityEffects.Instance?.OnCookingStarted();
         }
 
         private void TryCollectMeat(PlayerController player)

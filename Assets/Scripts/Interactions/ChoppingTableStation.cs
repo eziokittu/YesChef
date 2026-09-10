@@ -21,6 +21,7 @@ namespace YesChef
 
         private IngredientItem item;
         private float secondsRemaining;
+        private bool completionSignalled;
 
         private void Update()
         {
@@ -60,9 +61,11 @@ namespace YesChef
 
         public void ResetStation()
         {
+            if (item != null && item.State == PreparationState.Raw) KitchenActivityEffects.Instance?.OnChoppingFinished();
             if (item != null) Destroy(item.gameObject);
             item = null;
             secondsRemaining = 0f;
+            completionSignalled = false;
             RefreshDisplay();
         }
 
@@ -70,7 +73,16 @@ namespace YesChef
         {
             if (item == null || item.State != PreparationState.Raw) return;
             secondsRemaining = Mathf.Max(0f, secondsRemaining - Time.deltaTime);
-            if (secondsRemaining <= 0f) item.SetPrepared();
+            if (secondsRemaining <= 0f)
+            {
+                item.SetPrepared();
+                if (!completionSignalled)
+                {
+                    completionSignalled = true;
+                    AudioDirector.Instance?.PlayPrepared();
+                    KitchenActivityEffects.Instance?.OnChoppingFinished();
+                }
+            }
         }
 
         private void TryPlaceVegetable(PlayerController player)
@@ -78,6 +90,9 @@ namespace YesChef
             if (!IsHoldingRawVegetable(player)) return;
             item = player.Inventory.ReleaseTo(itemAnchor);
             secondsRemaining = preparationSeconds;
+            completionSignalled = false;
+            AudioDirector.Instance?.PlayChop();
+            KitchenActivityEffects.Instance?.OnChoppingStarted();
         }
 
         private void TryCollectVegetable(PlayerController player)

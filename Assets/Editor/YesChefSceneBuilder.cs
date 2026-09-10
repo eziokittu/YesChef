@@ -37,7 +37,7 @@ namespace YesChef.Editor
             var models = LoadModels();
 
             CreateEnvironment(models);
-            CreateRoomLighting();
+            var dayNightCycle = CreateRoomLighting();
 
             var gameRoot = new GameObject("GAMEPLAY");
             gameRoot.AddComponent<RuntimeVerifier>();
@@ -47,11 +47,14 @@ namespace YesChef.Editor
             var table = CreateChoppingTable(models["ChoppingTable"]);
             var stoves = new[]
             {
-                CreateStove("Stove A", new Vector3(1.25f, 0f, -0.35f), models),
-                CreateStove("Stove B", new Vector3(3.75f, 0f, -0.35f), models)
+                CreateStove("Stove A", new Vector3(0.25f, 0f, -0.75f), models),
+                CreateStove("Stove B", new Vector3(3.35f, 0f, -0.75f), models)
             };
             var trash = CreateTrash(models["TrashBin"]);
             var windows = CreateCustomerTables(models);
+            var audio = CreateAudioDirector();
+            CreateAmbientAudio(player);
+            CreateKitchenActivityEffects(models, refrigerator, table, stoves, trash);
 
             refrigerator.transform.SetParent(gameRoot.transform);
             table.transform.SetParent(gameRoot.transform);
@@ -60,7 +63,7 @@ namespace YesChef.Editor
             foreach (var window in windows) window.transform.SetParent(gameRoot.transform);
 
             var camera = CreateCinemachineCamera(player);
-            var ui = CreateScreenUi(refrigerator, player);
+            var ui = CreateScreenUi(refrigerator, player, audio);
 
             var manager = gameRoot.AddComponent<GameManager>();
             manager.player = player;
@@ -69,6 +72,7 @@ namespace YesChef.Editor
             manager.stoves = stoves;
             manager.fridgeMenu = ui.fridgeMenu;
             manager.adaptiveCamera = camera.controller;
+            manager.dayNightCycle = dayNightCycle;
             manager.timerText = ui.timer;
             manager.scoreText = ui.score;
             manager.highScoreText = ui.highScore;
@@ -118,10 +122,15 @@ namespace YesChef.Editor
 
         private static void ConfigureBrandTexture()
         {
-            const string path = "Assets/UI/Brand/GlitchbongLogo.png";
+            ConfigureSprite("Assets/UI/Brand/GlitchbongLogo.png");
+            ConfigureSprite("Assets/UI/Brand/GitHub_Invertocat_White.png");
+        }
+
+        private static void ConfigureSprite(string path)
+        {
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null) throw new FileNotFoundException($"Brand logo is missing: {path}");
-            if (importer.textureType == TextureImporterType.Sprite) return;
+            if (importer == null) throw new FileNotFoundException($"UI image is missing: {path}");
+            if (importer.textureType == TextureImporterType.Sprite && importer.alphaIsTransparency) return;
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
             importer.alphaIsTransparency = true;
@@ -134,7 +143,7 @@ namespace YesChef.Editor
             {
                 "Refrigerator", "ChoppingTable", "SingleStove", "TrashBin", "Chef", "Customer",
                 "VegetableRaw", "VegetableChopped", "Cheese", "MeatRaw", "MeatCooked",
-                "Tree", "Flower", "Lotus", "Frog", "Fish", "Snake"
+                "Tree", "Flower", "Lotus", "Rat", "Bush"
             };
             return names.ToDictionary(name => name, name =>
             {
@@ -159,20 +168,20 @@ namespace YesChef.Editor
         {
             var environment = new GameObject("ENVIRONMENT").transform;
             var grass = GetOrCreateMaterial("Outdoor Grass", new Color(0.18f, 0.48f, 0.20f));
-            var kitchenFloor = GetOrCreateMaterial("Kitchen Floor", new Color(0.55f, 0.59f, 0.57f));
-            var wall = GetOrCreateMaterial("Kitchen Walls", new Color(0.92f, 0.88f, 0.72f));
+            var kitchenFloor = GetOrCreateMaterial("Kitchen Floor", new Color(0.20f, 0.27f, 0.30f));
+            var wall = GetOrCreateMaterial("Kitchen Walls", new Color(0.93f, 0.84f, 0.67f));
             var road = GetOrCreateMaterial("Road", new Color(0.13f, 0.15f, 0.17f));
             var roadLine = GetOrCreateMaterial("Road Line", new Color(0.95f, 0.76f, 0.16f));
             var water = GetOrCreateMaterial("Marsh Water", new Color(0.07f, 0.38f, 0.42f));
             var stone = GetOrCreateMaterial("Building", new Color(0.33f, 0.36f, 0.43f));
-            var glass = GetOrCreateMaterial("Building Windows", new Color(0.12f, 0.62f, 0.86f));
+            var glass = GetOrCreateTransparentMaterial("Building Windows", new Color(0.12f, 0.62f, 0.86f, .28f));
 
-            CreateVisualBox("Outdoor Ground", new Vector3(0, -0.24f, 0), new Vector3(32f, 0.25f, 28f), grass, environment);
+            CreateVisualBox("Outdoor Ground", new Vector3(0, -0.24f, 0), new Vector3(42f, 0.25f, 32f), grass, environment);
             CreateVisualBox("Kitchen Floor", new Vector3(0, -0.08f, 0), new Vector3(12f, 0.18f, 10f), kitchenFloor, environment);
             CreateVisualBox("North Kitchen Wall", new Vector3(0, 0.55f, 5f), new Vector3(12f, 1.1f, 0.25f), wall, environment);
-            CreateVisualBox("South Kitchen Wall", new Vector3(0, 0.55f, -5f), new Vector3(12f, 1.1f, 0.25f), wall, environment);
-            CreateVisualBox("East Kitchen Wall", new Vector3(6f, 0.55f, 0), new Vector3(0.25f, 1.1f, 10f), wall, environment);
+            CreateWindowedKitchenWalls(environment, wall, glass);
             CreateVisualBox("West Service Wall", new Vector3(-6f, 0.42f, 0), new Vector3(0.25f, 0.84f, 10f), wall, environment);
+            CreateKitchenSurfacePatterns(environment);
 
             CreateBoundary("Kitchen Floor Collider", new Vector3(0, -0.12f, 0), new Vector3(12f, 0.24f, 10f), environment);
             CreateBoundary("North Boundary", new Vector3(0, 1.1f, 5f), new Vector3(12f, 2.2f, 0.3f), environment);
@@ -187,10 +196,16 @@ namespace YesChef.Editor
                 CreateVisualBox("Road Dash", new Vector3(-9.2f, 0.02f, z), new Vector3(0.18f, 0.035f, 1.2f), CreamMaterial(), environment);
             }
 
-            CreateVisualBox("Marsh", new Vector3(11f, -0.10f, 0), new Vector3(8f, 0.10f, 28f), water, environment);
+            CreateVisualBox("Marsh Bed", new Vector3(11f, -0.15f, 0), new Vector3(8f, 0.08f, 28f), water, environment);
+            for (var x = 8f; x <= 14f; x += 1.5f)
+                for (var z = -12f; z <= 12f; z += 2f)
+                {
+                    var tile = CreateVisualBoxObject("Moving Water Facet", new Vector3(x, -0.09f, z), new Vector3(1.55f, 0.04f, 2.05f), water, environment);
+                    tile.AddComponent<WaterSurfaceAnimator>().waveSpeed = 0.9f + Mathf.Abs((x + z) % 3f) * 0.08f;
+                }
             CreateBuilding(environment, stone, glass);
             CreateNature(models, environment);
-            CreateMarshLife(models, environment);
+            CreateMarshPlants(models, environment);
         }
 
         private static void CreateBuilding(Transform parent, Material stone, Material glass)
@@ -207,55 +222,168 @@ namespace YesChef.Editor
             }
         }
 
+        private static void CreateKitchenSurfacePatterns(Transform parent)
+        {
+            var ivory = GetOrCreateMaterial("Kitchen Floor Accent", new Color(.62f, .66f, .63f));
+            var brass = GetOrCreateMaterial("Kitchen Floor Brass", new Color(.73f, .47f, .14f));
+            var jade = GetOrCreateMaterial("Kitchen Floor Jade", new Color(.27f, .39f, .39f));
+            var wallTrim = GetOrCreateMaterial("Kitchen Wall Trim", new Color(.18f, .43f, .39f));
+            var wallMotif = GetOrCreateMaterial("Kitchen Wall Motif", new Color(.72f, .27f, .17f));
+
+            // A neutral 9-by-7 tiled layout mirrors exactly across both kitchen
+            // axes. The slight gaps reveal the dark base as consistent grout.
+            // Every decorative piece remains flat and collider-free.
+            CreateVisualBox("Floor Border North", new Vector3(0,.021f,4.55f), new Vector3(10.9f,.028f,.12f), brass, parent);
+            CreateVisualBox("Floor Border South", new Vector3(0,.021f,-4.55f), new Vector3(10.9f,.028f,.12f), brass, parent);
+            CreateVisualBox("Floor Border East", new Vector3(5.48f,.021f,0), new Vector3(.12f,.028f,9.2f), brass, parent);
+            CreateVisualBox("Floor Border West", new Vector3(-5.48f,.021f,0), new Vector3(.12f,.028f,9.2f), brass, parent);
+            for (var row = -3; row <= 3; row++)
+            {
+                for (var column = -4; column <= 4; column++)
+                {
+                    var material = (Mathf.Abs(row) + Mathf.Abs(column)) % 2 == 0 ? ivory : jade;
+                    CreateVisualBox("Symmetric Floor Tile", new Vector3(column * 1.2f,.024f,row * 1.2f),
+                        new Vector3(1.14f,.025f,1.14f), material, parent);
+                }
+            }
+
+            // Wainscot, cap rails, and repeating small motifs break up the old
+            // solid-colour walls without relying on external texture files.
+            CreateVisualBox("North Wall Wainscot", new Vector3(0,.27f,4.855f), new Vector3(11.7f,.36f,.035f), wallTrim, parent);
+            CreateVisualBox("North Wall Cap Rail", new Vector3(0,.51f,4.83f), new Vector3(11.7f,.055f,.065f), brass, parent);
+            CreateVisualBox("West Wall Wainscot", new Vector3(-5.855f,.25f,0), new Vector3(.035f,.34f,9.7f), wallTrim, parent);
+            CreateVisualBox("West Wall Cap Rail", new Vector3(-5.83f,.49f,0), new Vector3(.065f,.055f,9.7f), brass, parent);
+            for (var x = -5f; x <= 5f; x += 2f)
+                CreateWallDiamond(new Vector3(x,.77f,4.855f), wallMotif, parent, false);
+            for (var z = -4f; z <= 4f; z += 2f)
+                CreateWallDiamond(new Vector3(-5.855f,.70f,z), wallMotif, parent, true);
+        }
+
+        private static void CreateWallDiamond(Vector3 position, Material material, Transform parent, bool westWall)
+        {
+            var motif = CreateVisualBoxObject("Decorative Wall Diamond", position,
+                westWall ? new Vector3(.035f,.22f,.22f) : new Vector3(.22f,.22f,.035f), material, parent);
+            motif.transform.rotation = westWall ? Quaternion.Euler(45f,0f,0f) : Quaternion.Euler(0f,0f,45f);
+        }
+
         private static void CreateNature(IReadOnlyDictionary<string, GameObject> models, Transform parent)
         {
             var treePositions = new[]
             {
-                new Vector3(-4.5f, 0, -8f), new Vector3(-1.5f, 0, -9.2f), new Vector3(2f, 0, -8.3f),
-                new Vector3(5.2f, 0, -9.5f), new Vector3(7.5f, 0, 7.2f)
+                new Vector3(-5.0f, 0, -8.4f), new Vector3(-1.2f, 0, -9.6f), new Vector3(2.6f, 0, -7.7f),
+                new Vector3(5.4f, 0, -10.1f), new Vector3(7.3f, 0, 7.5f)
             };
-            foreach (var position in treePositions) AddModel(models["Tree"], "Low Poly Tree", position, Quaternion.identity, Vector3.one, parent);
-
-            for (var index = 0; index < 16; index++)
+            for (var index = 0; index < treePositions.Length; index++)
             {
-                var x = -5.5f + (index % 8) * 1.5f;
-                var z = -6.5f - (index / 8) * 1.3f;
-                AddModel(models["Flower"], "Garden Flower", new Vector3(x, 0, z), Quaternion.Euler(0, index * 37f, 0), Vector3.one * 0.8f, parent);
+                var tree = AddModel(models["Tree"], "Windy Low Poly Tree", treePositions[index], Quaternion.Euler(0, index * 47f, 0), Vector3.one * (0.85f + index % 3 * 0.12f), parent);
+                tree.AddComponent<WindSway>().phase = index * 1.37f;
             }
+
+            var flowers = new[]
+            {
+                new Vector3(-5.4f,0,-6.3f),new Vector3(-4.1f,0,-7.1f),new Vector3(-2.7f,0,-6.5f),new Vector3(-0.5f,0,-7.4f),
+                new Vector3(0.4f,0,-6.2f),new Vector3(2.1f,0,-7.0f),new Vector3(3.8f,0,-6.4f),new Vector3(5.5f,0,-7.3f),
+                new Vector3(-3.3f,0,-9.0f),new Vector3(1.2f,0,-9.4f),new Vector3(4.4f,0,-8.7f)
+            };
+            for (var index = 0; index < flowers.Length; index++)
+            {
+                var flower = AddModel(models["Flower"], "Windy Garden Flower", flowers[index], Quaternion.Euler(0, index * 61f, 0), Vector3.one * (0.65f + index % 4 * 0.08f), parent);
+                var sway = flower.AddComponent<WindSway>();
+                sway.angle = 4f;
+                sway.speed = 1.4f;
+            }
+            foreach (var position in new[] { new Vector3(-5.2f,0,-9.7f), new Vector3(-2.1f,0,-7.9f), new Vector3(3.2f,0,-9.3f), new Vector3(5.8f,0,-8.1f) })
+                AddModel(models["Bush"], "Garden Bush", position, Quaternion.Euler(0, position.x * 23f, 0), Vector3.one * 1.1f, parent).AddComponent<WindSway>();
+            CreateGrassClumps(parent);
         }
 
-        private static void CreateMarshLife(IReadOnlyDictionary<string, GameObject> models, Transform parent)
+        private static void CreateMarshPlants(IReadOnlyDictionary<string, GameObject> models, Transform parent)
         {
             foreach (var position in new[] { new Vector3(8.5f, 0, -3.5f), new Vector3(10.8f, 0, 2.2f), new Vector3(12.7f, 0, -0.5f), new Vector3(9.4f, 0, 5.8f) })
             {
-                AddModel(models["Lotus"], "Lotus", position, Quaternion.identity, Vector3.one * 1.2f, parent);
+                CreateLilyPad(position + new Vector3(.14f,-.015f,.08f), parent);
+                var lotus = AddModel(models["Lotus"], "Windy Lotus", position, Quaternion.identity, Vector3.one * 1.2f, parent);
+                lotus.AddComponent<WindSway>().angle = 1.4f;
             }
-            AddModel(models["Frog"], "Frog", new Vector3(9f, 0.04f, 1.2f), Quaternion.Euler(0, 35, 0), Vector3.one, parent);
-            AddModel(models["Frog"], "Frog", new Vector3(12.5f, 0.04f, -4f), Quaternion.Euler(0, -45, 0), Vector3.one * 0.85f, parent);
-
-            CreateWildlife(models["Fish"], "Swimming Fish A", new Vector3(8.2f, 0.02f, -5f), new Vector3(13.3f, 0.02f, -5f), 1.0f, false, parent);
-            CreateWildlife(models["Fish"], "Swimming Fish B", new Vector3(12.8f, 0.02f, 3.8f), new Vector3(8.5f, 0.02f, 3.8f), 0.75f, false, parent);
-            CreateWildlife(models["Snake"], "Rare Marsh Snake", new Vector3(8.3f, 0.05f, 6f), new Vector3(13.2f, 0.05f, -6f), 1.25f, true, parent);
         }
 
-        private static void CreateWildlife(GameObject model, string name, Vector3 pointA, Vector3 pointB, float speed, bool rare, Transform parent)
+        private static void CreateWindowedKitchenWalls(Transform parent, Material wall, Material glass)
+        {
+            // Visual wall segments leave genuine openings toward the garden and
+            // marsh. The full-height boundary remains for predictable gameplay.
+            CreateVisualBox("South Wall Left", new Vector3(-4.65f, .55f, -5f), new Vector3(2.7f, 1.1f, .25f), wall, parent);
+            CreateVisualBox("South Wall Centre", new Vector3(0f, .55f, -5f), new Vector3(3.8f, 1.1f, .25f), wall, parent);
+            CreateVisualBox("South Wall Right", new Vector3(4.65f, .55f, -5f), new Vector3(2.7f, 1.1f, .25f), wall, parent);
+            CreateVisualBox("South Garden Window", new Vector3(-2.55f, .68f, -5.02f), new Vector3(1.45f, .7f, .05f), glass, parent);
+            CreateVisualBox("South Garden Window 2", new Vector3(2.55f, .68f, -5.02f), new Vector3(1.45f, .7f, .05f), glass, parent);
+
+            CreateVisualBox("East Wall North", new Vector3(6f, .55f, 3.75f), new Vector3(.25f, 1.1f, 2.5f), wall, parent);
+            CreateVisualBox("East Wall Centre", new Vector3(6f, .55f, 0f), new Vector3(.25f, 1.1f, 2.7f), wall, parent);
+            CreateVisualBox("East Wall South", new Vector3(6f, .55f, -3.75f), new Vector3(.25f, 1.1f, 2.5f), wall, parent);
+            CreateVisualBox("East Marsh Window", new Vector3(6.02f, .68f, 2.0f), new Vector3(.05f, .7f, 1.35f), glass, parent);
+            CreateVisualBox("East Marsh Window 2", new Vector3(6.02f, .68f, -2.0f), new Vector3(.05f, .7f, 1.35f), glass, parent);
+
+            CreateWindowLight("Daylight Window Light - South Left", new Vector3(-2.55f, 2.8f, -6.25f), Quaternion.Euler(32f, 0f, 0f), parent, true);
+            CreateWindowLight("Daylight Window Light - South Right", new Vector3(2.55f, 2.8f, -6.25f), Quaternion.Euler(32f, 0f, 0f), parent, true);
+            CreateWindowLight("Daylight Window Light - East North", new Vector3(7.25f, 2.8f, 2f), Quaternion.Euler(32f, -90f, 0f), parent, true);
+            CreateWindowLight("Daylight Window Light - East South", new Vector3(7.25f, 2.8f, -2f), Quaternion.Euler(32f, -90f, 0f), parent, true);
+
+            CreateWindowLight("Night Window Spill - South Left", new Vector3(-2.55f, 2.35f, -4.45f), Quaternion.Euler(28f, 180f, 0f), parent, false);
+            CreateWindowLight("Night Window Spill - South Right", new Vector3(2.55f, 2.35f, -4.45f), Quaternion.Euler(28f, 180f, 0f), parent, false);
+            CreateWindowLight("Night Window Spill - East North", new Vector3(5.45f, 2.35f, 2f), Quaternion.Euler(28f, 90f, 0f), parent, false);
+            CreateWindowLight("Night Window Spill - East South", new Vector3(5.45f, 2.35f, -2f), Quaternion.Euler(28f, 90f, 0f), parent, false);
+        }
+
+        private static void CreateLilyPad(Vector3 position, Transform parent)
+        {
+            var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pad.name = "Low Poly Lotus Leaf";
+            pad.transform.SetParent(parent);
+            pad.transform.position = position;
+            pad.transform.localScale = new Vector3(.72f,.018f,.58f);
+            Object.DestroyImmediate(pad.GetComponent<Collider>());
+            pad.GetComponent<Renderer>().sharedMaterial = GetOrCreateMaterial("Lotus Leaf", new Color(.16f,.48f,.18f));
+            var sway = pad.AddComponent<WindSway>(); sway.angle = .8f; sway.speed = .7f;
+        }
+
+        private static void CreateWindowLight(string name, Vector3 position, Quaternion rotation, Transform parent, bool daylight)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent);
-            root.transform.position = pointA;
-            AddModel(model, name + " Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            var mover = root.AddComponent<WildlifeMover>();
-            mover.pointA = pointA;
-            mover.pointB = pointB;
-            mover.speed = speed;
-            mover.rareAppearance = rare;
+            root.transform.SetPositionAndRotation(position, rotation);
+            var light = root.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.color = daylight ? new Color(1f, .91f, .70f) : new Color(1f, .68f, .38f);
+            light.intensity = daylight ? 2.8f : 0f;
+            light.range = daylight ? 10f : 8f;
+            light.spotAngle = 42f;
+            light.shadows = LightShadows.Soft;
         }
 
-        private static void CreateRoomLighting()
+        private static void CreateGrassClumps(Transform parent)
+        {
+            var material = GetOrCreateMaterial("Garden Grass Blades", new Color(.12f, .38f, .13f));
+            var positions = new[] { new Vector3(-4.8f,0,-6.8f), new Vector3(-3.7f,0,-8.2f), new Vector3(-.8f,0,-8.6f), new Vector3(.8f,0,-7.8f), new Vector3(2.8f,0,-8.8f), new Vector3(4.9f,0,-6.8f) };
+            for (var index = 0; index < positions.Length; index++)
+            {
+                var clump = new GameObject("Windy Grass Clump");
+                clump.transform.SetParent(parent);
+                clump.transform.position = positions[index];
+                for (var blade = 0; blade < 5; blade++)
+                    CreateVisualBox("Grass Blade", positions[index] + new Vector3((blade - 2) * .08f, .22f + blade % 2 * .06f, blade % 3 * .06f), new Vector3(.035f, .44f + blade % 2 * .12f, .035f), material, clump.transform);
+                var sway = clump.AddComponent<WindSway>(); sway.angle = 5f; sway.phase = index * .8f;
+            }
+        }
+
+        private static DayNightCycle CreateRoomLighting()
         {
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.22f, 0.25f, 0.27f);
-            var lightRoot = new GameObject("ROOM POINT LIGHTS").transform;
+            RenderSettings.ambientLight = new Color(0.58f, 0.62f, 0.56f);
+            var cycleRoot = new GameObject("DAY NIGHT LIGHTING");
+            var cycle = cycleRoot.AddComponent<DayNightCycle>();
+            var lightRoot = new GameObject("SEQUENTIAL KITCHEN LIGHTS").transform;
+            lightRoot.SetParent(cycleRoot.transform);
+            var kitchenLights = new List<Light>();
             foreach (var position in new[]
                      {
                          new Vector3(-3.5f, 4.5f, -2.5f), new Vector3(0, 4.5f, -2.5f), new Vector3(3.5f, 4.5f, -2.5f),
@@ -268,10 +396,158 @@ namespace YesChef.Editor
                 var light = fixture.AddComponent<Light>();
                 light.type = LightType.Point;
                 light.color = new Color(1f, 0.82f, 0.58f);
-                light.intensity = 2.2f;
+                light.intensity = .22f;
                 light.range = 7f;
                 light.shadows = LightShadows.Soft;
+                kitchenLights.Add(light);
             }
+            var morningRoot = new GameObject("Global Morning Point Light");
+            morningRoot.transform.SetParent(cycleRoot.transform);
+            morningRoot.transform.position = new Vector3(1f, 13f, -2f);
+            var morning = morningRoot.AddComponent<Light>();
+            morning.type = LightType.Point;
+            morning.color = new Color(1f, .94f, .78f);
+            morning.intensity = cycle.globalMorningIntensity;
+            morning.range = 42f;
+            morning.shadows = LightShadows.Soft;
+            cycle.globalMorningLight = morning;
+            cycle.kitchenLights = kitchenLights.ToArray();
+            cycle.exteriorWindowLights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(light => light.type == LightType.Spot && light.name.Contains("Daylight Window Light"))
+                .ToArray();
+            cycle.interiorWindowSpillLights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(light => light.type == LightType.Spot && light.name.Contains("Night Window Spill"))
+                .ToArray();
+            cycle.ApplyLighting(0f);
+            return cycle;
+        }
+
+        private static AudioDirector CreateAudioDirector()
+        {
+            var root = new GameObject("AUDIO - DROP CLIPS HERE");
+            var director = root.AddComponent<AudioDirector>();
+            director.musicSource = root.AddComponent<AudioSource>();
+            director.sfxSource = root.AddComponent<AudioSource>();
+            director.musicSource.playOnAwake = false;
+            director.sfxSource.playOnAwake = false;
+            return director;
+        }
+
+        private static void CreateAmbientAudio(PlayerController player)
+        {
+            CreateAmbientZone("Garden Ambience - Crickets Birds Wind", new Vector3(0, 0, -5f), player, 3);
+            CreateAmbientZone("Marsh Ambience - Water Paddle Frog Hiss", new Vector3(6f, 0, 0), player, 4);
+        }
+
+        private static void CreateAmbientZone(string name, Vector3 position, PlayerController player, int sourceCount)
+        {
+            var root = new GameObject(name);
+            root.transform.position = position;
+            var zone = root.AddComponent<AmbientAudioZone>();
+            zone.listener = player.transform;
+            zone.loops = new AudioSource[sourceCount];
+            for (var index = 0; index < sourceCount; index++)
+            {
+                var sourceObject = new GameObject($"Optional Loop {index + 1}");
+                sourceObject.transform.SetParent(root.transform, false);
+                var source = sourceObject.AddComponent<AudioSource>();
+                source.loop = true;
+                source.playOnAwake = false;
+                source.spatialBlend = .35f;
+                zone.loops[index] = source;
+            }
+        }
+
+        private static void CreateKitchenActivityEffects(IReadOnlyDictionary<string, GameObject> models,
+            RefrigeratorStation refrigerator, ChoppingTableStation table, StoveStation[] stoves, TrashStation trash)
+        {
+            var root = new GameObject("POOLED KITCHEN MICRO EFFECTS");
+            var effects = root.AddComponent<KitchenActivityEffects>();
+            effects.cheeseCrumbs = CreateMessParticles("Cheese or Meat Crumbs", refrigerator.transform.position + new Vector3(-.8f,.05f,-.6f), new Color(1f,.72f,.08f), 18, root.transform);
+            effects.meatCrumbs = CreateMessParticles("Meat Fridge Spill", refrigerator.transform.position + new Vector3(-.7f,.05f,-.5f), new Color(.55f,.05f,.04f), 16, root.transform);
+            effects.choppingSpill = CreateMessParticles("Chopping Green Spill", table.transform.position + new Vector3(0,.04f,-.8f), new Color(.2f,.7f,.13f), 14, root.transform);
+            effects.meatSpill = CreateMessParticles("Cooking Meat Spill", (stoves[0].transform.position + stoves[1].transform.position) * .5f + new Vector3(0,.04f,-.9f), new Color(.55f,.05f,.04f), 12, root.transform);
+            SetParticleLoop(effects.choppingSpill, true);
+            SetParticleLoop(effects.meatSpill, true);
+            effects.trashAnts = CreateMessParticles("Delayed Red Ants", trash.transform.position + new Vector3(0,.04f,-.6f), new Color(.45f,.035f,.025f), 22, root.transform);
+            effects.trashFlies = CreateMessParticles("Delayed Black Flies", trash.transform.position + Vector3.up * .8f, new Color(.025f,.02f,.018f), 12, root.transform, .65f);
+            ConfigureTrashVisitors(effects.trashAnts, effects.trashFlies);
+            effects.ratEntrances = new[]
+            {
+                CreatePoint(root.transform, "Rat Entrance North West", new Vector3(-5.65f,.02f,4.55f)),
+                CreatePoint(root.transform, "Rat Entrance North East", new Vector3(5.65f,.02f,4.55f)),
+                CreatePoint(root.transform, "Rat Entrance South West", new Vector3(-5.65f,.02f,-4.55f)),
+                CreatePoint(root.transform, "Rat Entrance South East", new Vector3(5.65f,.02f,-4.55f))
+            };
+            effects.ratFood = CreatePoint(root.transform, "Rat Food Target", refrigerator.transform.position + new Vector3(-.8f,.02f,-.6f));
+            effects.rat = AddModel(models["Rat"], "Small Visiting Rat", effects.ratEntrances[0].position, Quaternion.identity, Vector3.one * .85f, root.transform, true);
+            effects.rat.SetActive(false);
+        }
+
+        private static ParticleSystem CreateMessParticles(string name, Vector3 position, Color color, int maxParticles, Transform parent, float radius = .35f)
+        {
+            var root = new GameObject(name);
+            root.transform.SetParent(parent);
+            root.transform.position = position;
+            var particles = root.AddComponent<ParticleSystem>();
+            var main = particles.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.duration = 2.5f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(2f, 10f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(.02f, .15f);
+            main.startSize = new ParticleSystem.MinMaxCurve(.025f, .07f);
+            main.startColor = color;
+            main.maxParticles = maxParticles;
+            var emission = particles.emission;
+            emission.rateOverTime = maxParticles * .45f;
+            var shape = particles.shape;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = radius;
+            shape.rotation = new Vector3(90f, 0, 0);
+            var renderer = particles.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = GetOrCreateParticleMaterial("Micro_Effects", Color.white);
+            particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            return particles;
+        }
+
+        private static void ConfigureTrashVisitors(ParticleSystem ants, ParticleSystem flies)
+        {
+            var antMain = ants.main;
+            antMain.startLifetime = new ParticleSystem.MinMaxCurve(5f, 9f);
+            antMain.startSpeed = new ParticleSystem.MinMaxCurve(.05f, .12f);
+            antMain.startSize = new ParticleSystem.MinMaxCurve(.025f, .04f);
+            var antShape = ants.shape;
+            antShape.radius = .48f;
+            antShape.radiusThickness = .2f;
+            var antVelocity = ants.velocityOverLifetime;
+            antVelocity.enabled = true;
+            antVelocity.orbitalY = .72f;
+            antVelocity.radial = .04f;
+
+            var flyMain = flies.main;
+            flyMain.startLifetime = new ParticleSystem.MinMaxCurve(2.2f, 4.5f);
+            flyMain.startSpeed = new ParticleSystem.MinMaxCurve(.12f, .28f);
+            flyMain.startSize = new ParticleSystem.MinMaxCurve(.018f, .035f);
+            var flyShape = flies.shape;
+            flyShape.shapeType = ParticleSystemShapeType.Sphere;
+            flyShape.radius = .62f;
+            var flyVelocity = flies.velocityOverLifetime;
+            flyVelocity.enabled = true;
+            flyVelocity.orbitalY = 2.1f;
+            flyVelocity.orbitalX = .38f;
+            flyVelocity.radial = .1f;
+            var noise = flies.noise;
+            noise.enabled = true;
+            noise.strength = new ParticleSystem.MinMaxCurve(.18f, .42f);
+            noise.frequency = 1.8f;
+            noise.scrollSpeed = .7f;
+        }
+
+        private static void SetParticleLoop(ParticleSystem particles, bool loop)
+        {
+            var main = particles.main;
+            main.loop = loop;
         }
 
         private static PlayerController CreatePlayer(GameObject model)
@@ -301,11 +577,11 @@ namespace YesChef.Editor
 
         private static RefrigeratorStation CreateRefrigerator(GameObject model, IngredientFactory factory)
         {
-            var root = CreateStationRoot("Refrigerator Station", new Vector3(4.85f, 0, 3.45f), new Vector3(1.9f, 2.9f, 1.5f));
+            var root = CreateStationRoot("Refrigerator Station", new Vector3(4.85f, 0, 3.65f), new Vector3(1.9f, 2.9f, 1.5f));
             var visual = AddModel(model, "Refrigerator Visual", Vector3.zero, Quaternion.Euler(0, 180, 0), Vector3.one, root.transform);
             var station = root.AddComponent<RefrigeratorStation>();
             station.factory = factory;
-            station.labelFader = CreateStationLabel(root.transform, "Fridge Label", new Vector3(0, 2.82f, 0), "FRIDGE", 27, new Vector2(250, 72));
+            station.labelFader = CreateStationLabel(root.transform, "Fridge Label", new Vector3(0, 3.05f, 0), "FRIDGE", 30, new Vector2(270, 78));
             var animator = root.AddComponent<RefrigeratorAnimator>();
             animator.doorHinge = FindChild(visual.transform, "MainDoorHinge");
             var lightObject = new GameObject("Refrigerator Interior Light");
@@ -323,12 +599,12 @@ namespace YesChef.Editor
 
         private static ChoppingTableStation CreateChoppingTable(GameObject model)
         {
-            var root = CreateStationRoot("Chopping Table Station", new Vector3(1.6f, 0, 2.45f), new Vector3(2.6f, 1.5f, 1.5f));
+            var root = CreateStationRoot("Chopping Table Station", new Vector3(0.65f, 0, 2.65f), new Vector3(2.6f, 1.5f, 1.5f));
             AddModel(model, "Chopping Table Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            var anchor = CreatePoint(root.transform, "Ingredient Anchor", new Vector3(1.6f, 1.28f, 2.45f));
+            var anchor = CreatePoint(root.transform, "Ingredient Anchor", new Vector3(.65f, 1.28f, 2.65f));
             var station = root.AddComponent<ChoppingTableStation>();
             station.itemAnchor = anchor;
-            station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 1.62f, 0), "CHOPPING TABLE", 27, new Vector2(330, 76), new Color(0.03f, 0.04f, 0.05f, 0.52f));
+            station.statusText = CreateWorldText(root.transform, "Table Status", new Vector3(0, 1.85f, 0), "CHOPPING TABLE", 30, new Vector2(360, 82), new Color(0.03f, 0.04f, 0.05f, 0.88f));
             station.labelFader = ConfigureStationLabel(station.statusText);
             station.progressFill = CreateWorldProgressBar(root.transform, "Chopping Progress", new Vector3(0, 1.98f, 0), 650);
             return station;
@@ -343,7 +619,7 @@ namespace YesChef.Editor
 
             var station = root.AddComponent<StoveStation>();
             station.itemAnchor = anchor;
-            station.statusText = CreateWorldText(root.transform, name + " Status", new Vector3(0, 1.92f, 0), name.ToUpperInvariant(), 27, new Vector2(230, 72), new Color(0.03f, 0.04f, 0.05f, 0.52f));
+            station.statusText = CreateWorldText(root.transform, name + " Status", new Vector3(0, 2.14f, 0), name.ToUpperInvariant(), 30, new Vector2(250, 78), new Color(0.03f, 0.04f, 0.05f, 0.88f));
             station.labelFader = ConfigureStationLabel(station.statusText);
             station.progressFill = CreateWorldProgressBar(root.transform, name + " Progress", new Vector3(0, 2.42f, 0), 570);
             CreateStoveEffects(root.transform, new Vector3(0, 1.58f, 0), station);
@@ -388,10 +664,14 @@ namespace YesChef.Editor
 
         private static TrashStation CreateTrash(GameObject model)
         {
-            var root = CreateStationRoot("Trash Station", new Vector3(4.9f, 0, -3.6f), new Vector3(1.5f, 1.5f, 1.5f));
-            AddModel(model, "Trash Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
-            CreateStationLabel(root.transform, "Trash Label", new Vector3(0, 1.44f, 0), "TRASH", 26, new Vector2(210, 70));
-            return root.AddComponent<TrashStation>();
+            var root = CreateStationRoot("Trash Station", new Vector3(4.8f, 0, -3.55f), new Vector3(1.5f, 1.5f, 1.5f));
+            var visual = AddModel(model, "Trash Visual", Vector3.zero, Quaternion.identity, Vector3.one, root.transform);
+            CreateStationLabel(root.transform, "Trash Label", new Vector3(0, 1.68f, 0), "TRASH", 30, new Vector2(230, 76));
+            var station = root.AddComponent<TrashStation>();
+            var animator = root.AddComponent<TrashLidAnimator>();
+            animator.lid = FindChild(visual.transform, "TrashLidHinge");
+            station.lidAnimator = animator;
+            return station;
         }
 
         private static List<CustomerWindow> CreateCustomerTables(IReadOnlyDictionary<string, GameObject> models)
@@ -420,9 +700,10 @@ namespace YesChef.Editor
                 window.roadPoint = CreatePoint(root.transform, "Road Turn", new Vector3(-9.2f, 0, z));
                 window.servicePoint = CreatePoint(root.transform, "Customer Service Point", new Vector3(-6.75f, 0, z));
                 window.exitPoint = CreatePoint(root.transform, "Exit Point", new Vector3(-9.2f, 0, exitZ));
-                window.orderText = CreateWorldText(root.transform, "Table Order Card", new Vector3(0.3f, 2.15f, 0), "ORDER", 40, new Vector2(720, 165));
+                window.orderText = CreateWorldText(root.transform, "Table Order Card", new Vector3(0.3f, 1.92f, 0), "ORDER", 32, new Vector2(570, 125));
                 window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(0.3f, 3.05f, 0), string.Empty, 52, new Vector2(420, 100));
-                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.3f, 0), "Welcome!", 38, new Vector2(520, 180));
+                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.3f, 0), "Welcome!", 35, new Vector2(500, 170));
+                window.dialogueDisplaySeconds = 6f;
                 window.dialogueBubble = window.dialogueText.transform.parent.gameObject;
                 result.Add(window);
             }
@@ -475,7 +756,7 @@ namespace YesChef.Editor
             TMP_Text resultScore, TMP_Text newHighScore, TMP_Text pauseDetails, Button startButton, Button pauseButton, Button resumeButton,
             Button restartButton, Button quitButton, Button pauseQuitButton, Button cancelQuitButton, Button confirmQuitButton,
             FridgeMenuController fridgeMenu) CreateScreenUi(
-                RefrigeratorStation refrigerator, PlayerController player)
+                RefrigeratorStation refrigerator, PlayerController player, AudioDirector audio)
         {
             var canvasObject = new GameObject("Game UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             var canvas = canvasObject.GetComponent<Canvas>();
@@ -484,7 +765,7 @@ namespace YesChef.Editor
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 0.55f;
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
             var hudPanel = CreateAnchoredPanel(canvas.transform, "Score HUD", new Vector2(0, 1), new Vector2(24, -24), new Vector2(390, 180), new Vector2(0, 1));
@@ -512,48 +793,55 @@ namespace YesChef.Editor
 
             var fridgeMenu = CreateFridgeMenu(canvas.transform, refrigerator, player);
 
-            var instructions = CreatePanel(canvas.transform, "Instructions Panel", new Vector2(900, 700));
+            var instructions = CreatePanel(canvas.transform, "Instructions Panel", new Vector2(1040, 860));
             CreateScreenText(instructions.transform, "Title", "YES CHEF!", 76, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -42), new Vector2(780, 100), Tomato);
-            CreateScreenText(instructions.transform, "Subtitle", "Top-down kitchen service - three minutes, four tables", 31, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -140), new Vector2(800, 55), Cream);
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(900, 94), Tomato);
+            CreateScreenText(instructions.transform, "Subtitle", "3 MINUTES  |  4 TABLES  |  ONE ITEM AT A TIME", 26, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -115), new Vector2(900, 46), new Color(.73f,.78f,.78f,1));
             CreateScreenText(instructions.transform, "How To Play",
-                "<b>1.</b> Visit the fridge and press <b>E</b> to browse, click an item, or use 1 / 2 / 3.\n" +
-                "<b>2.</b> Chop raw vegetables for 2s. Cook raw meat on either stove for 6s. Cheese is ready.\n" +
-                "<b>3.</b> Carry only one item and serve it at the matching named customer table.\n" +
-                "<b>4.</b> Faster orders score more. Wrong items stay in your hands; trash unwanted items.\n\n" +
-                "The bottom bar always tells you the controls and your best next action.",
-                28, TextAlignmentOptions.Left, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -20), new Vector2(760, 350), Cream);
-            var startButton = CreateButton(instructions.transform, "Start Button", "START COOKING", new Vector2(0.5f, 0), new Vector2(0, 48), new Vector2(330, 76));
+                "<color=#63D66B><b>[1] FRIDGE</b></color>  Pick one ingredient with E or 1 / 2 / 3.\n\n" +
+                "<color=#FFD04A><b>[2] PREPARE</b></color>  Chop vegetables for 2s; cook meat for 6s; cheese is ready.\n\n" +
+                "<color=#63B8FF><b>[3] SERVE</b></color>  Match the table card. Faster complete orders score more.\n\n" +
+                "<color=#FF6655><b>[4] CLEAN UP</b></color>  Wrong items stay in hand—discard them at the trash.\n\n" +
+                "<b>WASD / ARROWS</b> Move     <b>E</b> Interact     <b>ESC</b> Pause",
+                26, TextAlignmentOptions.Left, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(55, 4), new Vector2(800, 430), Cream);
+            CreateInstructionIcons(instructions.transform);
+            var startButton = CreateButton(instructions.transform, "Start Button", "START COOKING", new Vector2(0.5f, 0), new Vector2(0, 154), new Vector2(350, 76));
+            CreateBrandCredits(instructions.transform, new Vector2(0, 22));
 
             var pause = CreateScreenOverlay(canvas.transform, "Pause Overlay");
-            var pauseCard = CreatePanel(pause.transform, "Pause Card", new Vector2(760, 690));
+            var pauseCard = CreatePanel(pause.transform, "Pause Card", new Vector2(760, 570));
             CreateScreenText(pauseCard.transform, "Paused", "PAUSED", 60, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -38), new Vector2(650, 88), Tomato);
             var pauseDetails = CreateScreenText(pauseCard.transform, "Pause Details", "CURRENT SCORE  0      BEST  0", 25, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(650, 150), Cream);
-            var resumeButton = CreateButton(pauseCard.transform, "Resume Button", ">  RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -18), new Vector2(280, 68));
+            var resumeButton = CreateButton(pauseCard.transform, "Resume Button", "RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -18), new Vector2(300, 68));
             var pauseQuitButton = CreateButton(pauseCard.transform, "Pause Quit Button", "QUIT GAME", new Vector2(0.5f, 0.5f), new Vector2(0, -102), new Vector2(280, 60));
-            CreateBrandCredits(pauseCard.transform, new Vector2(0, 82));
+            var musicToggle = CreateToggle(pauseCard.transform, "Music Toggle", "MUSIC", new Vector2(-145, 48), audio.MusicEnabled);
+            var sfxToggle = CreateToggle(pauseCard.transform, "SFX Toggle", "SOUND EFFECTS", new Vector2(145, 48), audio.SfxEnabled);
+            UnityEventTools.AddPersistentListener(musicToggle.onValueChanged, audio.SetMusicEnabled);
+            UnityEventTools.AddPersistentListener(sfxToggle.onValueChanged, audio.SetSfxEnabled);
+            CreateBrandCredits(pause.transform, new Vector2(0, 22));
 
             var quitConfirmation = CreateScreenOverlay(canvas.transform, "Quit Confirmation Overlay");
-            var quitCard = CreatePanel(quitConfirmation.transform, "Quit Confirmation Card", new Vector2(720, 650));
+            var quitCard = CreatePanel(quitConfirmation.transform, "Quit Confirmation Card", new Vector2(720, 500));
             CreateScreenText(quitCard.transform, "Quit Title", "ONE MORE ORDER?", 54, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -42), new Vector2(620, 78), Tomato);
             CreateScreenText(quitCard.transform, "Quit Message", "The kitchen is still warm and your customers are hungry.\nStay for one more delicious service?", 28,
                 TextAlignmentOptions.Center, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(610, 105), Cream);
-            var cancelQuitButton = CreateButton(quitCard.transform, "Keep Cooking Button", ">  KEEP COOKING", new Vector2(0.5f, 0.5f), new Vector2(-155, -40), new Vector2(280, 68));
+            var cancelQuitButton = CreateButton(quitCard.transform, "Keep Cooking Button", "KEEP COOKING", new Vector2(0.5f, 0.5f), new Vector2(-155, -40), new Vector2(280, 68));
             var confirmQuitButton = CreateButton(quitCard.transform, "Confirm Quit Button", "YES, QUIT", new Vector2(0.5f, 0.5f), new Vector2(155, -40), new Vector2(230, 68));
-            CreateBrandCredits(quitCard.transform, new Vector2(0, 78));
+            CreateBrandCredits(quitConfirmation.transform, new Vector2(0, 22));
 
-            var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(620, 480));
+            var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(700, 610));
             CreateScreenText(results.transform, "Game Over", "SERVICE OVER!", 60, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -48), new Vector2(540, 90), Tomato);
             var newHighScore = CreateScreenText(results.transform, "New High Score", string.Empty, 35, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -145), new Vector2(540, 60), new Color(1f, 0.78f, 0.2f));
             var resultScore = CreateScreenText(results.transform, "Result Score", "Final score: 0", 38, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -15), new Vector2(540, 120), Cream);
-            var restartButton = CreateButton(results.transform, "Restart Button", "PLAY AGAIN", new Vector2(0.5f, 0), new Vector2(0, 48), new Vector2(270, 72));
+            var restartButton = CreateButton(results.transform, "Restart Button", "PLAY AGAIN", new Vector2(0.5f, 0), new Vector2(0, 174), new Vector2(290, 72));
+            CreateBrandCredits(results.transform, new Vector2(0, 22));
 
             controlsStrip.SetActive(false);
             pause.SetActive(false);
@@ -683,7 +971,9 @@ namespace YesChef.Editor
                 rect.anchoredPosition = data.Item1;
                 rect.sizeDelta = data.Item2;
                 puff.GetComponent<Image>().sprite = sprite;
-                puff.GetComponent<Image>().color = new Color(1f, 0.98f, 0.91f, 0.96f);
+                // Fully opaque overlapping puffs read as one cloud silhouette;
+                // translucency created distracting internal overlap lines.
+                puff.GetComponent<Image>().color = new Color(1f, 0.98f, 0.91f, 1f);
             }
 
             var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -835,13 +1125,20 @@ namespace YesChef.Editor
 
         private static void CreateVisualBox(string name, Vector3 position, Vector3 size, Material material, Transform parent)
         {
+            CreateVisualBoxObject(name, position, size, material, parent);
+        }
+
+        private static GameObject CreateVisualBoxObject(string name, Vector3 position, Vector3 size, Material material, Transform parent, bool worldPosition = true)
+        {
             var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
             visual.name = name;
-            visual.transform.SetParent(parent);
-            visual.transform.position = position;
+            visual.transform.SetParent(parent, worldPosition);
+            if (worldPosition) visual.transform.position = position;
+            else visual.transform.localPosition = position;
             visual.transform.localScale = size;
             Object.DestroyImmediate(visual.GetComponent<Collider>());
             visual.GetComponent<Renderer>().sharedMaterial = material;
+            return visual;
         }
 
         private static Material GetOrCreateMaterial(string name, Color color)
@@ -858,12 +1155,32 @@ namespace YesChef.Editor
             return material;
         }
 
+        private static Material GetOrCreateTransparentMaterial(string name, Color color)
+        {
+            var material = GetOrCreateMaterial(name, color);
+            material.SetFloat("_Mode", 3f);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static Material InkMaterial() => GetOrCreateMaterial("Deep Ink", Ink);
         private static Material CreamMaterial() => GetOrCreateMaterial("Warm Cream", Cream);
 
         private static Material GetOrCreateParticleMaterial()
         {
-            const string path = "Assets/Materials/Stove_Flame.mat";
+            return GetOrCreateParticleMaterial("Stove_Flame", new Color(1f, 0.28f, 0.02f, 0.9f));
+        }
+
+        private static Material GetOrCreateParticleMaterial(string assetName, Color color)
+        {
+            var path = $"Assets/Materials/{assetName}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             var shader = Shader.Find("Particles/Standard Unlit");
             if (shader == null) throw new MissingReferenceException("Unity's Particles/Standard Unlit shader is unavailable.");
@@ -873,7 +1190,7 @@ namespace YesChef.Editor
                 AssetDatabase.CreateAsset(material, path);
             }
             material.shader = shader;
-            material.color = new Color(1f, 0.28f, 0.02f, 0.9f);
+            material.color = color;
             EditorUtility.SetDirty(material);
             return material;
         }
@@ -888,28 +1205,79 @@ namespace YesChef.Editor
             var overlay = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             overlay.transform.SetParent(parent, false);
             StretchToParent(overlay.GetComponent<RectTransform>());
-            overlay.GetComponent<Image>().color = new Color(0.015f, 0.02f, 0.025f, 0.72f);
+            overlay.GetComponent<Image>().color = new Color(0.015f, 0.02f, 0.025f, 0.58f);
             return overlay;
         }
 
         private static void CreateBrandCredits(Transform parent, Vector2 bottomPosition)
         {
-            var logoObject = new GameObject("Glitchbong Logo", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            logoObject.transform.SetParent(parent, false);
-            var logoRect = logoObject.GetComponent<RectTransform>();
-            logoRect.anchorMin = logoRect.anchorMax = new Vector2(0.5f, 0);
-            logoRect.pivot = new Vector2(0.5f, 0);
-            logoRect.anchoredPosition = bottomPosition + new Vector2(-245, 0);
-            logoRect.sizeDelta = new Vector2(78, 78);
-            logoObject.GetComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GlitchbongLogo.png");
-
             var links = parent.gameObject.AddComponent<ExternalLinkButton>();
-            var contact = CreateButton(parent, "Glitchbong Contact Link", "DEVELOPED BY GLITCHBONG  ->", new Vector2(0.5f, 0), bottomPosition + new Vector2(35, 40), new Vector2(430, 48));
-            var repository = CreateButton(parent, "GitHub Source Link", "GH  CHECK GITHUB SOURCE CODE  ->", new Vector2(0.5f, 0), bottomPosition + new Vector2(35, -18), new Vector2(430, 48));
+            var contact = CreateButton(parent, "Glitchbong Contact Link", "        DEVELOPED BY GLITCHBONG", new Vector2(0.5f, 0), bottomPosition + new Vector2(0, 54), new Vector2(540, 46));
+            var repository = CreateButton(parent, "GitHub Source Link", "        VIEW SOURCE ON GITHUB", new Vector2(0.5f, 0), bottomPosition, new Vector2(540, 46));
             contact.GetComponent<Image>().color = new Color(0.14f, 0.48f, 0.18f, 0.94f);
             repository.GetComponent<Image>().color = new Color(0.13f, 0.15f, 0.18f, 0.96f);
+            var logoObject = new GameObject("Glitchbong Logo", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            logoObject.transform.SetParent(contact.transform, false);
+            var logoRect = logoObject.GetComponent<RectTransform>();
+            logoRect.anchorMin = logoRect.anchorMax = new Vector2(0, .5f);
+            logoRect.pivot = new Vector2(0, .5f);
+            logoRect.anchoredPosition = new Vector2(12, 0);
+            logoRect.sizeDelta = new Vector2(40, 40);
+            var logo = logoObject.GetComponent<Image>();
+            logo.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GlitchbongLogo.png");
+            logo.raycastTarget = false;
+            var githubIcon = CreateVisualUiImage(repository.transform, "GitHub Invertocat", new Vector2(-238, 0), new Vector2(34, 34), Color.white);
+            githubIcon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GitHub_Invertocat_White.png");
+            githubIcon.preserveAspect = true;
+            githubIcon.raycastTarget = false;
             UnityEventTools.AddPersistentListener(contact.onClick, links.OpenGlitchbongContact);
             UnityEventTools.AddPersistentListener(repository.onClick, links.OpenRepository);
+        }
+
+        private static Toggle CreateToggle(Transform parent, string name, string label, Vector2 position, bool initialValue)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+            root.transform.SetParent(parent, false);
+            var rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, 0);
+            rect.pivot = new Vector2(.5f, 0);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(250, 44);
+            var background = CreateVisualUiImage(root.transform, "Track", new Vector2(-90, 0), new Vector2(52, 28), new Color(.12f,.15f,.17f,1));
+            var check = CreateVisualUiImage(background.transform, "Checkmark", Vector2.zero, new Vector2(20,20), new Color(.35f,.9f,.42f,1));
+            var toggle = root.GetComponent<Toggle>();
+            toggle.targetGraphic = background;
+            toggle.graphic = check;
+            toggle.isOn = initialValue;
+            CreateScreenText(root.transform, "Label", label, 19, TextAlignmentOptions.Left,
+                new Vector2(.5f,.5f), new Vector2(.5f,.5f), new Vector2(30,0), new Vector2(190,40), Cream).raycastTarget = false;
+            return toggle;
+        }
+
+        private static Image CreateVisualUiImage(Transform parent, string name, Vector2 position, Vector2 size, Color color)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            root.transform.SetParent(parent, false);
+            var rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f,.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            var image = root.GetComponent<Image>();
+            image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            image.type = Image.Type.Sliced;
+            image.color = color;
+            return image;
+        }
+
+        private static void CreateInstructionIcons(Transform parent)
+        {
+            var colors = new[] { new Color(.2f,.7f,.3f), new Color(1f,.72f,.12f), new Color(.2f,.62f,1f), Tomato };
+            for (var index = 0; index < 4; index++)
+            {
+                var image = CreateVisualUiImage(parent, $"Rule {index + 1} Icon", new Vector2(-430, 135 - index * 63), new Vector2(42,42), colors[index]);
+                var rect = image.rectTransform;
+                rect.anchorMin = rect.anchorMax = new Vector2(.5f,.5f);
+            }
         }
 
         private static GameObject CreateAnchoredPanel(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, Vector2 pivot)
@@ -925,6 +1293,9 @@ namespace YesChef.Editor
             image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
             image.type = Image.Type.Sliced;
             image.color = Panel;
+            var shadow = panel.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, .42f);
+            shadow.effectDistance = new Vector2(0f, -7f);
             return panel;
         }
 
@@ -968,6 +1339,9 @@ namespace YesChef.Editor
             colors.highlightedColor = new Color(1f, 0.38f, 0.24f);
             colors.pressedColor = new Color(0.68f, 0.08f, 0.06f);
             button.colors = colors;
+            var shadow = buttonObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, .34f);
+            shadow.effectDistance = new Vector2(0f, -4f);
             var text = CreateScreenText(buttonObject.transform, "Label", label, 26, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size, Color.white);
             text.raycastTarget = false;

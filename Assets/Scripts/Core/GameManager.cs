@@ -17,6 +17,7 @@ namespace YesChef
         public StoveStation[] stoves;
         public FridgeMenuController fridgeMenu;
         public AdaptiveCinemachineCamera adaptiveCamera;
+        public DayNightCycle dayNightCycle;
 
         [Header("HUD")]
         public TMP_Text timerText;
@@ -85,6 +86,8 @@ namespace YesChef
             }
             fridgeMenu?.Close();
             adaptiveCamera?.ResetZoom();
+            dayNightCycle?.ResetCycle();
+            KitchenActivityEffects.Instance?.ResetEffects();
             instructionsPanel.SetActive(false);
             pausePanel.SetActive(false);
             resultsPanel.SetActive(false);

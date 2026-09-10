@@ -1,0 +1,86 @@
+the gameplay looks much better now but i still see some issues.
+1. in the pause/exit menu, i want to show a transluscent background so that the game objects seem hazy below the menu. Also the credits like glitchbong text needs to be below the menu outside in the bottom part of screen so that players can focus on it separately. And the source code and developer credits should be in separate lines. The developer line including the glitchbong logo should be clickable. same with the github logo and sourcode text ... they should entirely be clickable.
+2. I saw an issue with the fridge that when i already pick and item and then press e, the dridge does not close. 
+3. The ingame text on the objects are correctly small size as required but in some cases its not readable. fix that. i want the text to be above the object and when player comes it should get faded.
+4. The fishes and snakes and frogs dont at all look good. make them more detailed. also make the movement better. these animals should feel lively and natural even though low poly. Then i want to add small butter flies in the graden below flying near the flowers in random pathways. the movement should feel predictable and natural rather being clanky. the flog should be jumping across the lotus flowers and leaves in the water. the fishes should jump in the water and the snakle eventually should come once make a hiss animation and then go back to the water. These all should be visible in case the player goes ojn the extreme right of the kitchen and in case the player is idle i want the camera to partially shoft to the right and a bit of zooming out so we can see the player and those animals in the water as well. The water should also have a very basic low poly movement effect like fluid mechanism so it does not feel simple ly a blue colour but should feel like a real low poly water.
+5. Same the lotus flowers, trees and flowers in the garden shoould have a slight movement so it feels like it is windy outside. currently the trees and flowers are ordered in a way too symmetric pattern. i want things to be in a random order with unequal gaps so that it feels natural. also add grass and bushes to make the ambience better. 
+6. Keep some more place between the stoves and the chopping table and the fridge so that its easier to navigate. Also add some windows in the right and bottom edges of the kitchen so we can see the garden and the pond. also add a conical light source outside, so it feels like light is coming from outside into the window filling up the space. 
+7. the one thing missing is audio and music. which i will be having later on. But i want the music mechanics corrected now itself so later on i can choose and add those music to the necessary portions. - There will be a background music that should run all the time even in pause and exit menu. and even after restarting the level, the same music continues. Other than the music i want some sound effects for - chopping, cooking in stove, opening fridge, closing fridge, food prepared sound on stove, new order sound, customer order received sound. If i bring the player to the window on the bottom edge to the garden side i wanty to hear 3 more sounds of crickets, birds and wind. In case i am on the right edge i want to hear water flowing sound, paddle sound on water as if fishes are jumping, frog sounds and in case the sname is there then i want a hissing sound as well. So create all the mechanics for all these i will be adding the exact sound files later on. in the pause menu i want toggles for turning of music and sound effects. if i pause the music and unpause within 3 seconds then the music starts from where it was. but if more than 3 seconds have passed i want to restart playing the music. Also i will be having 2 different music and i want them to play one after another in loop forever.
+8. currently the customer dialog clouds look strange. like dark cloud lines in between. i dont want that i only want the edges of the cloud and in the centre there will be text. The clouds are coming and goinf too fast. i want keep them for longer time. Also the order requet in black is taking a lot of visual space. i want it to take less space.
+9. After game is over, in the service over screen as well i want to show my credits and source code link. Same with the yes chef starting screen. I want to show the links. 
+10. I have noticed that there are no idle animations added to those player chef and customers. add them so the game feels more lively. make the animations in blender itself if necessary. but i want the animations. 
+11. in case of throwing an item on to the trah, i want the trash lid to show open and close aniamtion. Also the kitchen floor i want to make it more interesting. while taking meat or cheese from the fridge, there will be a 50% chance of spillage and in that case i want a small rat (doesnt need to be detailed just create a small rodent like animal with tail) which comes to eat that. So the cheese will create some small yellow particles which the rat will smell after 2-3 seconds and come and eat it. On throwing any item on the trash, i want to show small red ants and flies (small blackish red dots rotating in the floor represnting ants and small black dots flying around the dustbin making it look like flies) These should only show 5-6 seconds later after i throw the first item in the trash. Beside the copping board i want spillage like greenish dots around the floor while i am chopping but these need to go away (destroy itself gradually) in 2-10 seconds after im done with chopping. Same with stoves i want to show red meat chunks on the floor while cooking which needs to go after 2-10 seconds after i am done. I want all these micro systems to be optimized so that it looks live and really interesting.
+12. The game starting modal looks very boring. I want to show these instructions, game rules with images or icons along with text so that they are more exciting and engaging. Make things more interesting in the overall UI.
+
+IMPLEMENTATION STATUS - 2026-09-10
+
+1. Implemented: translucent pause/quit overlays; credits moved below their cards; developer and source are separate full-width clickable rows; logo is inside the developer link.
+2. Fixed and runtime-verified: E closes the fridge even while holding an item.
+3. Implemented: labels moved higher, given stronger contrast at distance, and faded more strongly near the chef.
+4. Implemented: more detailed Blender frog/fish/snake models, smooth fish breaches, one-time hissing snake visit, lotus-to-lotus frog hopping, four predictable butterfly loops, moving faceted water, and east-edge idle camera reveal.
+5. Implemented: asymmetric hand-authored planting, varied scale/rotation, wind sway, bushes, and grass clumps.
+6. Implemented: wider station gaps, transparent south/east windows, patterned floor, and warm exterior spot-light cones.
+7. Mechanics implemented; audio clips intentionally pending: persistent two-track playlist, all requested kitchen SFX hooks, two proximity ambience zones, pause menu music/SFX toggles, and the three-second music resume/restart rule. Assign final clips on AUDIO - DROP CLIPS HERE and the named ambience/wildlife AudioSources.
+8. Implemented: opaque unified cloud silhouette without translucent overlap lines, six-second dialogue display, and smaller order cards.
+9. Implemented: separate clickable credits on instructions, pause, quit confirmation, and results screens.
+10. Implemented: named arm/leg parts now animate with subtle idle sway and stronger alternating walk motion in addition to breathing/bobbing.
+11. Implemented: hinged trash lid; pooled/lifetime-bounded crumb, meat, chopping, ant, and fly particles; 50% meat/cheese spill chance; delayed rat visit; delayed trash insects.
+12. Implemented: larger rules card, color-coded step icons, concise grouped rules, and clearer controls hierarchy.
+
+Verification boundary:
+- Blender 5.2 regenerated 23 FBX assets successfully.
+- Expanded isolated Unity scene validation passed.
+- Windows development build passed.
+- Runtime probes passed for fridge E-close and east-edge camera reveal with no null/missing-reference exceptions.
+- Automated hidden-window screenshots render black on this Windows session. A normal visible Play Mode review is still required for subjective layout, animation, and art tuning.
+- Final audio files are not present, by design; only their complete mechanics and Inspector slots are implemented.
+
+New issues -
+13. The game seems to be at night time. I want a global light so it feels like the game is running during morning. I want a realistic day night cycle. The game time will be 3 minutes. So it starts with day (point source lights up the entire scene including the pond, garden and road), then after 50 seconds the sun gradually sets in (the light intensity reduces till 70 seconds from start when intensity becomes 0) Then from 70 seconds to 110 seconds its night time. then 110 to 130 is again the transition time and then till the end of the game it stays morning. Also during day time, the point light sources in game need to be turned off or having low intensity so the kitchen does not seem dark. Also light will come from the pond area and garden area. The light should come separately from the different windows and not together. During night during the transition period the light should gradually become 0 and in night time the lights coming from outside should be 0. But during tranition i want the lights in the kitchen to be turned on gradually 1 after another with some random flickering affect on some so it feels real. And then again from transition from night to day, he lights are turned off and outside lights become intensive. 
+14. the newly made fishes, butterflies, frogs and snakes dont look good. i want them to look really good in low poly so people can understand what they are. Make accurate models and import them from blender.
+15. use the actual guthub icon rather than "GH" and use that in all the UI menus. Also in all the menus someplaces the texts are overlapping each other. i want you to make the Ui look good. See how other mobile games make the Ui and follow the same good UI practices. currently the UI looks too congested and unprofessional.
+16. I wanted that when the layer moves closer to the windows and go idle then the cinemachine should focus towards a outside a little so more of the environment can be seen. Simialrly i wanted that when the player chef goes towards the customers, the camera should show more of the left side like more of the road so we can easily read the dialogues of these customers.
+
+IMPLEMENTATION STATUS - PROGRESS 3 - 2026-09-10
+
+13. Implemented and validated: the service begins in bright morning light; sunset runs from 50-70 seconds; night runs from 70-110 seconds; sunrise runs from 110-130 seconds; morning remains through 180 seconds. A global point light covers the kitchen, pond, garden, and road. Garden and marsh window spot lights remain separate. The six kitchen lights are dim by day, turn on sequentially with bounded deterministic flicker at sunset, remain steady at night, and turn off as outside light returns.
+14. Rebuilt in Blender 5.2 and imported: frog, fish, snake, and butterfly now have clearer low-poly silhouettes and identifying face, limb, fin, scale, tongue, antenna, bordered-wing, and color details. Butterflies are no longer Unity box primitives; their Blender wing pivots are driven by ButterflyFlight.
+15. Implemented and visibly reviewed at 1280x720: every major menu now uses the official GitHub Invertocat sprite instead of GH text. Instruction icons have a dedicated column, buttons and credits no longer overlap, pause toggles stay on one line, cards have clearer spacing and depth, and each complete credit row remains clickable.
+16. Implemented and runtime-verified: after the idle delay, east/marsh, south/garden, and west/customer zones widen the Cinemachine view and shift composition toward the relevant exterior. The west probe kept the chef at screen X 793.95 while revealing the road and customer dialogue; the east probe kept the chef at screen X 447.63 while revealing the marsh.
+
+Progress 3 verification boundary:
+- Blender 5.2.1 regenerated 24 FBX assets and YesChef_LowPoly.blend without errors.
+- Unity 6000.3.11f1 isolated BuildAndValidate passed after the final scene rebuild.
+- The final Windows development build passed at 151658942 bytes.
+- Visible standalone captures were inspected for instructions, pause, morning gameplay, night gameplay, east marsh framing, and west customer framing.
+- Night runtime evidence: daylight=0.00, global morning light=0.00, minimum kitchen-light intensity=2.25.
+- Runtime logs contained no NullReferenceException or MissingReferenceException.
+- The native Windows app-control helper was unavailable after its required retry, so the already-open Unity Editor window itself could not be clicked automatically. Unity batch validation and the generated standalone player were used for engine/runtime and visible review instead.
+- Final audio files remain intentionally pending.
+
+
+More issues -
+The game looks more playale now but still have some issues.
+17. The animals like fish, snake, frog, butterflies are not looking good. I want to dismantle them completely. For the audio i will keep the sound effects but the visual objects i dont want to show.
+18. i am having windows in the bottom and right side of the kitchen to see the garden and pond respectively. But there are 2 windows each. i wanted each window to behave as in independent light source during the day where the light can come from outside to fill the kitchen. Similarly during night i wanted light to come from the kitchen to outside. But currently both the windows are combined and it looks weird. fix these.
+19. i wanted a rat to come in case particles from cheese falls to the ground. i dont see that in the game. I want that. also the rat can come from any direction from any 4 corners of the kitchen. it should randomly spawn.
+20. I wanted some dot like particles near the chopping board and stove when i am using them . but i see the particles before using them as well. This feels wrong. fix that. I wanted ants and flies to come near the trash can after i drop my 1st item there. But i dont see any. Add that too. The flies particles effects should feel like flies. not absurd. it should feel like flies and red ants. 
+21. the floor texture is too basic. i want some artistic floor design so it feels like a fancy kitchen. same with the walls. they look too basic like solid colours. i want them to have some patterns so they look better.
+22. wanted some simple mechanism to make the water feel like moving like real water. liek up and odwn movements
+
+IMPLEMENTATION STATUS - PROGRESS 4 - 2026-09-10
+
+17. Implemented: fish, snake, frog, and butterfly visuals and motion components are no longer created in the Kitchen scene. Their optional marsh audio slots remain available for future clips.
+18. Implemented: each of the two south and two east windows now owns a separate daylight spotlight. Four additional warm spotlights point from the kitchen through the matching panes at night. The two groups cross-fade with the existing day/night timeline.
+19. Implemented and runtime-verified: only a successful cheese spill schedules the rat. After 2-3 seconds it appears from one randomly selected kitchen corner, travels to the crumbs, eats, and returns to that same corner.
+20. Fixed and runtime-verified: all six micro-effect particle systems disable play-on-awake and reset clear. Chopping/stove particles begin only with station activity. The first trash discard schedules ground-hugging red ants and small orbiting/noisy black flies after 5-6 seconds.
+21. Updated and visibly reviewed: the kitchen now has a generic centered 9-by-7 checker-tile floor mirrored across both axes, with a uniform perimeter border. Wall wainscot, rails, and repeating motifs remain.
+22. Implemented: each marsh facet now has a stronger phase-offset vertical wave plus gentle tilt and length variation, keeping the motion lightweight while making the water surface visibly move.
+
+Progress 4 verification boundary:
+- Unity 6000.3.11f1 isolated BuildAndValidate passed after final scene generation.
+- Windows development build passed at 151022977 bytes.
+- Runtime effects probe started with every mess/visitor effect hidden, then observed chopping and stove particles active, the rat active from entrance 0, and 11 ant plus 6 fly particles after the trash delay.
+- Runtime night probe reported daylight=0.00, day-window maximum=0.00, night-window minimum=1.65, and kitchen-light minimum=2.25.
+- A visible 1280x720 standalone morning capture was inspected; the new floor/wall composition renders correctly and no wildlife visuals remain.
+- Final audio clips remain intentionally pending. No commit or push was performed.

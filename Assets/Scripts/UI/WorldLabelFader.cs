@@ -11,8 +11,8 @@ namespace YesChef
     {
         public Transform player;
         public float fadeDistance = 2.4f;
-        [Range(0f, 1f)] public float distantAlpha = 0.78f;
-        [Range(0f, 1f)] public float nearbyAlpha = 0.24f;
+        [Range(0f, 1f)] public float distantAlpha = 1f;
+        [Range(0f, 1f)] public float nearbyAlpha = 0.16f;
         public float fadeSpeed = 5f;
 
         private CanvasGroup canvasGroup;

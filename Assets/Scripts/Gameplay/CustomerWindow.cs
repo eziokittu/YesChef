@@ -65,6 +65,7 @@ namespace YesChef
         [Min(0f)] public float respawnMaximum = 6f;
         [Min(0.1f)] public float popupSeconds = 2.5f;
         [Min(0.1f)] public float popupFadeSeconds = 1f;
+        [Min(1f)] public float dialogueDisplaySeconds = 6f;
 
         private OrderTicket currentOrder;
         private VisitState state;
@@ -107,6 +108,7 @@ namespace YesChef
 
             var delivered = player.Inventory.ConsumeHeld();
             if (delivered != null) Destroy(delivered.gameObject);
+            AudioDirector.Instance?.PlayOrderItemReceived();
             ShowDialogue("That is one item closer - thank you!");
 
             if (currentOrder.IsComplete) CompleteOrder();
@@ -184,6 +186,7 @@ namespace YesChef
         private void CreateOrder()
         {
             currentOrder = OrderGenerator.CreateRandom();
+            AudioDirector.Instance?.PlayNewOrder();
             state = VisitState.Serving;
             stateSeconds = 0f;
             dialogueSeconds = Random.Range(5f, 9f);
@@ -275,7 +278,7 @@ namespace YesChef
         {
             if (dialogueBubble != null) dialogueBubble.SetActive(true);
             if (dialogueText != null) dialogueText.text = message;
-            bubbleVisibleSeconds = 3.5f;
+            bubbleVisibleSeconds = dialogueDisplaySeconds;
         }
 
         private void RefreshOrderDisplay()

@@ -70,6 +70,15 @@ def cylinder(collection, name, location, radius, depth, mat, vertices=12, rotati
     return finish(obj, mat, 0.025)
 
 
+def cone(collection, name, location, radius1, radius2, depth, mat, vertices=8, rotation=(0, 0, 0)):
+    bpy.ops.mesh.primitive_cone_add(vertices=vertices, radius1=radius1, radius2=radius2, depth=depth,
+                                   location=location, rotation=rotation)
+    obj = bpy.context.object
+    obj.name = name
+    move_to_collection(obj, collection)
+    return finish(obj, mat, 0.018)
+
+
 def ico(collection, name, location, radius, mat, scale=(1, 1, 1), subdivisions=1):
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdivisions, radius=radius, location=location)
     obj = bpy.context.object
@@ -158,6 +167,12 @@ GRASS = material("M_Grass", (0.13, 0.43, 0.17), roughness=0.92)
 GLASS = material("M_Window", (0.15, 0.55, 0.72), metallic=0.05, roughness=0.25)
 WALL = material("M_Wall", (0.70, 0.74, 0.68), roughness=0.9)
 FLOOR = material("M_Floor", (0.24, 0.30, 0.31), roughness=0.86)
+FROG_DARK = material("M_FrogDark", (0.045, 0.28, 0.08), roughness=0.78)
+FISH_BLUE = material("M_FishBlue", (0.04, 0.34, 0.56), metallic=0.08, roughness=0.48)
+FISH_CREAM = material("M_FishCream", (0.96, 0.72, 0.30), roughness=0.62)
+SNAKE_BELLY = material("M_SnakeBelly", (0.82, 0.68, 0.30), roughness=0.76)
+WING_ORANGE = material("M_WingOrange", (0.96, 0.35, 0.045), roughness=0.52)
+WING_YELLOW = material("M_WingYellow", (1.0, 0.72, 0.08), roughness=0.52)
 
 assets = {}
 
@@ -221,7 +236,10 @@ parent_parts(c, root); assets["SingleStove"] = c
 
 c, root = begin_asset("TrashBin")
 cylinder(c, "Bin", (0, 0, 0.55), 0.48, 1.1, STEEL, vertices=12)
-cylinder(c, "Lid", (0, 0, 1.12), 0.53, 0.12, DARK, vertices=12)
+lid_hinge = empty(c, "TrashLidHinge", (0, 0.42, 1.12))
+lid = cylinder(c, "Lid", (0, 0, 1.12), 0.53, 0.12, DARK, vertices=12)
+lid.parent = lid_hinge
+lid.matrix_parent_inverse = lid_hinge.matrix_world.inverted()
 box(c, "Pedal", (0, -0.48, 0.10), (0.34, 0.24, 0.10), DARK, 0.03)
 parent_parts(c, root); assets["TrashBin"] = c
 
@@ -314,22 +332,98 @@ ico(c, "LotusCenter", (0, 0, 0.12), 0.12, YELLOW, scale=(1, 1, 0.5), subdivision
 parent_parts(c, root); assets["Lotus"] = c
 
 c, root = begin_asset("Frog")
-ico(c, "FrogBody", (0, 0, 0.18), 0.26, GREEN_LIGHT, scale=(1.2, 0.8, 0.55), subdivisions=1)
+ico(c, "FrogBody", (0, 0.08, 0.20), 0.29, GREEN_LIGHT, scale=(1.18, 0.92, 0.62), subdivisions=2)
+ico(c, "FrogBackStripe", (0, 0.08, 0.31), 0.22, FROG_DARK, scale=(.72, 1.0, .18), subdivisions=1)
+ico(c, "FrogHead", (0, -0.23, 0.27), 0.24, GREEN_LIGHT, scale=(1.08, 0.82, 0.68), subdivisions=2)
 for x in (-0.15, 0.15):
-    ico(c, f"FrogEye_{x}", (x, -0.17, 0.33), 0.07, YELLOW, subdivisions=1)
+    ico(c, f"FrogEye_{x}", (x, -0.29, 0.39), 0.078, YELLOW, subdivisions=2)
+    ico(c, f"FrogPupil_{x}", (x, -0.357, 0.40), 0.029, BLACK, scale=(.55, .38, 1.25), subdivisions=1)
+    cylinder(c, f"FrogThigh_{x}", (x * 1.65, 0.15, 0.14), 0.105, 0.30, GREEN, vertices=7, rotation=(0, math.pi / 2, 0))
+    cylinder(c, f"FrogShin_{x}", (x * 2.05, -0.02, 0.085), 0.065, 0.32, GREEN_LIGHT, vertices=7, rotation=(math.pi / 2, 0, 0))
+    foot = box(c, f"FrogWebbedFoot_{x}", (x * 2.05, -0.23, 0.045), (0.22, 0.25, 0.045), GREEN, 0.018)
+    foot.rotation_euler.z = -x * 1.5
+for x in (-0.18, 0.18):
+    cylinder(c, f"FrogFrontLeg_{x}", (x, -0.35, 0.12), 0.045, 0.24, GREEN_LIGHT, vertices=6, rotation=(math.pi / 2, 0, 0))
+box(c, "FrogMouth", (0, -0.443, 0.255), (.22, .018, .018), FROG_DARK, .004)
+for x in (-0.065, 0.065):
+    ico(c, f"FrogNostril_{x}", (x, -0.444, .315), .012, FROG_DARK, subdivisions=1)
 parent_parts(c, root); assets["Frog"] = c
 
 c, root = begin_asset("Fish")
-ico(c, "FishBody", (0, 0, 0), 0.30, ORANGE, scale=(1.45, 0.65, 0.55), subdivisions=1)
-bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.25, radius2=0, depth=0.35, location=(0.47, 0, 0), rotation=(0, math.pi / 2, 0))
-tail = move_to_collection(bpy.context.object, c); tail.name = "FishTail"; finish(tail, YELLOW, 0.02)
+ico(c, "FishBody", (0, 0, 0.02), 0.32, FISH_BLUE, scale=(1.58, 0.68, 0.72), subdivisions=2)
+ico(c, "FishBelly", (-.05, 0, -.13), .25, FISH_CREAM, scale=(1.45, .66, .30), subdivisions=1)
+cone(c, "FishTail", (0.57, 0, 0.02), .29, 0, .42, YELLOW, vertices=3, rotation=(0, math.pi / 2, 0))
+for side in (-1, 1):
+    ico(c, f"FishEye_{side}", (-0.36, side * 0.20, 0.10), 0.057, WHITE, subdivisions=2)
+    ico(c, f"FishPupil_{side}", (-0.39, side * 0.242, 0.10), 0.023, BLACK, subdivisions=1)
+    fin = cone(c, f"FishSideFin_{side}", (.02, side * .23, -.01), .13, 0, .30, YELLOW, vertices=3,
+               rotation=(math.pi / 2, 0, 0))
+    fin.rotation_euler.z = side * .24
+cone(c, "FishTopFin", (0.02, 0, 0.31), .19, 0, .34, YELLOW, vertices=3, rotation=(math.pi / 2, 0, 0))
+torus(c, "FishMouth", (-.505, 0, .015), .055, .014, FISH_CREAM, rotation=(0, math.pi / 2, 0))
+for side in (-1, 1):
+    torus(c, f"FishGill_{side}", (-.25, side * .205, .0), .10, .012, FISH_CREAM, rotation=(math.pi / 2, 0, 0))
 parent_parts(c, root); assets["Fish"] = c
 
 c, root = begin_asset("Snake")
-for index in range(7):
-    ico(c, f"SnakeSegment_{index}", ((index - 3) * 0.18, math.sin(index * 1.4) * 0.12, 0), 0.13, GREEN, scale=(1.2, 0.8, 0.65), subdivisions=1)
-ico(c, "SnakeHead", (-0.68, -0.08, 0.02), 0.18, GREEN_LIGHT, scale=(1.2, 0.9, 0.72), subdivisions=1)
+for index in range(12):
+    taper = 1.0 - index * .045
+    x = (index - 5) * .145
+    y = math.sin(index * 1.05) * .13
+    ico(c, f"SnakeSegment_{index:02d}", (x, y, .09), .135 * taper, GREEN,
+        scale=(1.18, .9, .76), subdivisions=1)
+    if index % 2 == 0:
+        ico(c, f"SnakeBackMark_{index:02d}", (x, y, .19), .055 * taper, FROG_DARK,
+            scale=(1.25, .7, .25), subdivisions=1)
+ico(c, "SnakeHead", (-0.88, -0.01, 0.13), 0.20, GREEN_LIGHT, scale=(1.25, 0.95, 0.76), subdivisions=2)
+ico(c, "SnakeBelly", (-.80, -.01, .045), .15, SNAKE_BELLY, scale=(1.15,.82,.28), subdivisions=1)
+for y in (-0.10, 0.01):
+    eye_y = -.105 if y < 0 else .105
+    ico(c, f"SnakeEye_{eye_y}", (-1.0, eye_y, 0.22), 0.043, YELLOW, subdivisions=2)
+    ico(c, f"SnakePupil_{eye_y}", (-1.035, eye_y * 1.04, .22), .017, BLACK, scale=(.45,.45,1.35), subdivisions=1)
+box(c, "SnakeTongue", (-1.16, 0, 0.10), (.28, .025, .025), RED, 0.004)
+for fork_y in (-.025, .025):
+    fork = box(c, f"SnakeTongueFork_{fork_y}", (-1.31, fork_y, .10), (.13,.018,.018), RED, .003)
+    fork.rotation_euler.z = fork_y * 9
 parent_parts(c, root); assets["Snake"] = c
+
+c, root = begin_asset("Butterfly")
+cylinder(c, "ButterflyBody", (0, 0, .08), .035, .34, BLACK, vertices=8, rotation=(0, math.pi / 2, 0))
+ico(c, "ButterflyHead", (-.19, 0, .08), .065, BLACK, subdivisions=1)
+for side in (-1, 1):
+    wing_name = "ButterflyLeftWing" if side < 0 else "ButterflyRightWing"
+    wing = empty(c, wing_name, (0, 0, .08))
+    fore_border = ico(c, f"ButterflyForewingBorder_{side}", (-.03, side * .20, .09), .22, BLACK,
+                      scale=(1.22, .92, .09), subdivisions=2)
+    fore_border.parent = wing; fore_border.location = (-.03, side * .20, .01)
+    fore = ico(c, f"ButterflyForewing_{side}", (-.04, side * .20, .105), .19, WING_ORANGE,
+               scale=(1.18, .86, .09), subdivisions=2)
+    fore.parent = wing; fore.location = (-.04, side * .20, .025)
+    hind_border = ico(c, f"ButterflyHindwingBorder_{side}", (.15, side * .16, .085), .17, BLACK,
+                      scale=(.9, .92, .09), subdivisions=2)
+    hind_border.parent = wing; hind_border.location = (.15, side * .16, .005)
+    hind = ico(c, f"ButterflyHindwing_{side}", (.15, side * .16, .10), .145, WING_YELLOW,
+               scale=(.86, .84, .09), subdivisions=2)
+    hind.parent = wing; hind.location = (.15, side * .16, .02)
+    spot = ico(c, f"ButterflyWingSpot_{side}", (-.08, side * .23, .125), .055, WHITE,
+               scale=(1.0,.72,.08), subdivisions=1)
+    spot.parent = wing; spot.location = (-.08, side * .23, .045)
+    antenna = cylinder(c, f"ButterflyAntenna_{side}", (-.27, side * .045, .13), .009, .20, BLACK, vertices=6,
+                       rotation=(0, math.pi / 2 - side * .26, 0))
+parent_parts(c, root); assets["Butterfly"] = c
+
+c, root = begin_asset("Rat")
+ico(c, "RatBody", (0, 0, 0.16), 0.22, DARK, scale=(1.5, 0.75, 0.65), subdivisions=1)
+ico(c, "RatHead", (-0.29, 0, 0.18), 0.15, DARK, scale=(1.15, 0.8, 0.8), subdivisions=1)
+for y in (-0.10, 0.10):
+    ico(c, f"RatEar_{y}", (-0.29, y, 0.31), 0.07, PINK, scale=(0.5, 1, 1), subdivisions=1)
+torus(c, "RatTail", (0.38, 0, 0.12), 0.30, 0.025, PINK, rotation=(math.pi / 2, 0, 0))
+parent_parts(c, root); assets["Rat"] = c
+
+c, root = begin_asset("Bush")
+for x, y, z, scale in ((0, 0, .34, 1), (-.28, .02, .28, .75), (.28, -.03, .29, .8)):
+    ico(c, f"BushLeaf_{x}", (x, y, z), .40, GREEN, scale=(scale, scale, scale * .75), subdivisions=1)
+parent_parts(c, root); assets["Bush"] = c
 
 for asset_name, collection in assets.items():
     export_asset(asset_name, collection)
@@ -355,6 +449,12 @@ lineup = [
     ("Cheese", (1.3, -1.6, 0)),
     ("MeatRaw", (2.8, -1.6, 0)),
     ("MeatCooked", (4.3, -1.6, 0)),
+    ("Frog", (-4.8, -3.6, 0)),
+    ("Fish", (-3.0, -3.6, .35)),
+    ("Snake", (-.8, -3.6, .2)),
+    ("Butterfly", (1.3, -3.6, .4)),
+    ("Rat", (3.0, -3.6, 0)),
+    ("Bush", (4.7, -3.6, 0)),
 ]
 for asset_name, offset in lineup:
     source_collection = assets[asset_name]
@@ -368,13 +468,13 @@ for asset_name, offset in lineup:
         duplicate.location += Vector(offset)
         preview.objects.link(duplicate)
 
-floor = box(preview, "PreviewFloor", (0, 0, -0.12), (12.5, 7.0, 0.18), FLOOR, 0.04)
+floor = box(preview, "PreviewFloor", (0, -.75, -0.12), (12.5, 8.5, 0.18), FLOOR, 0.04)
 bpy.ops.object.light_add(type="AREA", location=(0, -1, 8))
 key = bpy.context.object; key.name = "KeyLight"; key.data.energy = 1700; key.data.shape = "DISK"; key.data.size = 7
 bpy.ops.object.light_add(type="AREA", location=(-5, -4, 4))
 fill = bpy.context.object; fill.name = "FillLight"; fill.data.energy = 900; fill.data.size = 5
 fill.rotation_euler = (math.radians(50), 0, math.radians(-35))
-bpy.ops.object.camera_add(location=(10.5, -15.5, 11.5))
+bpy.ops.object.camera_add(location=(10.5, -17.5, 12.5))
 camera = bpy.context.object
 direction = Vector((0, 0, 1.0)) - camera.location
 camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()

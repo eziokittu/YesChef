@@ -16,6 +16,7 @@ namespace YesChef
         private Quaternion closedRotation;
         private float openness;
         private bool shouldOpen;
+        private bool lastRequestedOpen;
 
         private void Awake()
         {
@@ -38,6 +39,12 @@ namespace YesChef
 
         public void SetOpen(bool value)
         {
+            if (value != lastRequestedOpen)
+            {
+                if (value) AudioDirector.Instance?.PlayFridgeOpen();
+                else AudioDirector.Instance?.PlayFridgeClose();
+                lastRequestedOpen = value;
+            }
             shouldOpen = value;
         }
     }

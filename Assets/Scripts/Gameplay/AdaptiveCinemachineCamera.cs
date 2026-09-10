@@ -17,6 +17,13 @@ namespace YesChef
         [Range(20f, 80f)] public float idleFieldOfView = 42f;
         [Min(0f)] public float idleDelay = 3f;
         [Min(0.05f)] public float zoomSmoothTime = 1.8f;
+        [Header("Idle edge reveals")]
+        public float marshRevealScreenX = 0.35f;
+        public float customerRevealScreenX = 0.62f;
+        public float gardenRevealScreenY = 0.61f;
+        public float horizontalEdgeThreshold = 3.8f;
+        public float gardenEdgeThreshold = -3.25f;
+        public float idleRevealFieldOfView = 58f;
 
         private float idleSeconds;
         private float zoomVelocity;
@@ -27,6 +34,11 @@ namespace YesChef
 
             idleSeconds = player.IsMoving ? 0f : idleSeconds + Time.unscaledDeltaTime;
             var targetFieldOfView = idleSeconds >= idleDelay ? idleFieldOfView : movingFieldOfView;
+            var revealReady = idleSeconds >= idleDelay;
+            var revealMarsh = revealReady && player.transform.position.x >= horizontalEdgeThreshold;
+            var revealCustomers = revealReady && player.transform.position.x <= -horizontalEdgeThreshold;
+            var revealGarden = revealReady && player.transform.position.z <= gardenEdgeThreshold;
+            if (revealMarsh || revealCustomers || revealGarden) targetFieldOfView = idleRevealFieldOfView;
 
             var lens = virtualCamera.m_Lens;
             lens.FieldOfView = Mathf.SmoothDamp(
@@ -37,6 +49,15 @@ namespace YesChef
                 Mathf.Infinity,
                 Time.unscaledDeltaTime);
             virtualCamera.m_Lens = lens;
+
+            var framing = virtualCamera.GetCinemachineComponent<CinemachineFramingTransposer>();
+            if (framing != null)
+            {
+                var targetScreenX = revealMarsh ? marshRevealScreenX : revealCustomers ? customerRevealScreenX : 0.5f;
+                var targetScreenY = revealGarden ? gardenRevealScreenY : 0.48f;
+                framing.m_ScreenX = Mathf.MoveTowards(framing.m_ScreenX, targetScreenX, Time.unscaledDeltaTime * 0.12f);
+                framing.m_ScreenY = Mathf.MoveTowards(framing.m_ScreenY, targetScreenY, Time.unscaledDeltaTime * 0.12f);
+            }
         }
 
         public void ResetZoom()
@@ -47,6 +68,12 @@ namespace YesChef
             var lens = virtualCamera.m_Lens;
             lens.FieldOfView = movingFieldOfView;
             virtualCamera.m_Lens = lens;
+            var framing = virtualCamera.GetCinemachineComponent<CinemachineFramingTransposer>();
+            if (framing != null)
+            {
+                framing.m_ScreenX = 0.5f;
+                framing.m_ScreenY = 0.48f;
+            }
         }
     }
 }

@@ -38,8 +38,13 @@ This project is deliberately split into small scripts with one clear job each. T
 | `RefrigeratorAnimator` | Smooth Blender-hinge door animation and synchronized interior-light fade |
 | `WorldLabelFader` | Softens station labels near the chef and hides them while a station surface is occupied |
 | `ExternalLinkButton` | Opens the Glitchbong contact page and public source URL from the credits UI |
-| `AdaptiveCinemachineCamera` | Smooth Cinemachine follow lens: wide while moving, closer after an idle delay |
-| `WildlifeMover` | Reusable ambient movement, including delayed rare-snake appearances |
+| `AdaptiveCinemachineCamera` | Smooth Cinemachine follow lens with idle marsh, garden, and customer-road edge reveals |
+| `DayNightCycle` | Three-minute morning/sunset/night/sunrise timeline, four independent daylight window cones, and four outward night spill cones |
+| `AudioDirector` | Persistent two-track playlist, music/SFX preferences, and optional kitchen SFX routing |
+| `AmbientAudioZone` | Distance-faded garden and marsh ambience sources |
+| `WindSway`, `WaterSurfaceAnimator` | Lightweight procedural plant and faceted-water motion |
+| `KitchenActivityEffects` | Event-only bounded particles, delayed trash insects, and a cheese-seeking rat entering from a random kitchen corner |
+| `TrashLidAnimator` | Reusable timed lid hinge animation |
 | `Billboard` | Rotates world-space TMP cards toward the active Cinemachine-driven camera |
 
 ## Why duplicate orders work

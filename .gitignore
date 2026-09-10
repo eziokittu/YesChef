@@ -81,6 +81,7 @@ New_Developer_Test.pdf
 /.codex/
 /.openai/
 /.claude/
+/tmp/
 /AGENTS.md
 *.prompt.md
 /.codex-validation-path
