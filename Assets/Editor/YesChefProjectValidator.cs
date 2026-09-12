@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using Cinemachine;
 using TMPro;
@@ -29,13 +30,54 @@ namespace YesChef.Editor
                 scenes = new[] { "Assets/Scenes/Kitchen.unity" },
                 locationPathName = outputPath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development
+                options = BuildOptions.None
             });
             if (report.summary.result != BuildResult.Succeeded)
             {
                 throw new InvalidOperationException($"Windows build failed: {report.summary.result}");
             }
             Debug.Log($"YES_CHEF_WINDOWS_BUILD_COMPLETE: {outputPath} ({report.summary.totalSize} bytes)");
+        }
+
+        public static void BuildWebGLPlayer()
+        {
+            var outputPath = Path.GetFullPath("Builds/WebGL");
+            var archivePath = Path.GetFullPath("Builds/YesChef-WebGL.zip");
+            Directory.CreateDirectory(outputPath);
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { "Assets/Scenes/Kitchen.unity" },
+                locationPathName = outputPath,
+                target = BuildTarget.WebGL,
+                options = BuildOptions.None
+            });
+            if (report.summary.result != BuildResult.Succeeded)
+            {
+                throw new InvalidOperationException($"WebGL build failed: {report.summary.result}");
+            }
+            CreatePortableZip(outputPath, archivePath);
+            Debug.Log($"YES_CHEF_WEBGL_BUILD_COMPLETE: {outputPath} ({report.summary.totalSize} bytes), itch.io archive: {archivePath}");
+        }
+
+        private static void CreatePortableZip(string sourceDirectory, string archivePath)
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
+            var sourceRoot = Path.GetFullPath(sourceDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            using var archive = ZipFile.Open(archivePath, ZipArchiveMode.Create);
+            var hasRootIndex = false;
+            foreach (var filePath in Directory.GetFiles(sourceRoot, "*", SearchOption.AllDirectories))
+            {
+                var entryName = filePath.Substring(sourceRoot.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace('\\', '/');
+                if (entryName.Contains('\\'))
+                    throw new InvalidOperationException("The itch.io WebGL archive contains non-portable Windows path separators.");
+                if (entryName == "index.html") hasRootIndex = true;
+                archive.CreateEntryFromFile(filePath, entryName, System.IO.Compression.CompressionLevel.Optimal);
+            }
+
+            if (!hasRootIndex)
+                throw new InvalidOperationException("The itch.io WebGL archive must contain index.html at its root.");
         }
 
         public static void Validate()
@@ -85,6 +127,9 @@ namespace YesChef.Editor
             Require(manager.fridgeMenu.refrigerator.animator != null && manager.fridgeMenu.refrigerator.animator.doorHinge != null &&
                     manager.fridgeMenu.refrigerator.animator.interiorLight != null,
                 "The refrigerator needs an authored door hinge and fading interior light.");
+            Require(Mathf.Approximately(manager.fridgeMenu.refrigerator.pickupReachSeconds, .6f) &&
+                    Mathf.Approximately(manager.fridgeMenu.refrigerator.animator.animationSpeed, 4.8f),
+                "The refrigerator door and pickup reach must run at the 1.5x timing.");
             Require(manager.instructionsPanel != null && manager.pausePanel != null && manager.quitConfirmationPanel != null &&
                     manager.resultsPanel != null && manager.pauseDetailsText != null, "Game-state panels are incomplete.");
             Require(UnityEngine.Object.FindFirstObjectByType<CinemachineBrain>() != null, "The Main Camera needs a Cinemachine Brain.");
@@ -95,12 +140,16 @@ namespace YesChef.Editor
             Require(virtualCamera != null && virtualCamera.Follow == manager.player.transform && Camera.main != null && !Camera.main.orthographic,
                 "A perspective Cinemachine camera must follow the player.");
             Require(manager.adaptiveCamera != null, "The idle/movement Cinemachine zoom controller is missing.");
-            Require(manager.adaptiveCamera.idleDelay >= 3f && manager.adaptiveCamera.zoomSmoothTime >= 1.5f,
-                "The adaptive camera must wait three seconds and zoom gradually.");
-            Require(manager.adaptiveCamera.idleRevealFieldOfView > manager.adaptiveCamera.movingFieldOfView &&
+            Require(Mathf.Approximately(Camera.main.fieldOfView, 36f) &&
+                    Mathf.Approximately(virtualCamera.m_Lens.FieldOfView, 36f) &&
+                    Mathf.Approximately(manager.adaptiveCamera.movingFieldOfView, 36f) &&
+                    Mathf.Approximately(manager.adaptiveCamera.idleFieldOfView, 28f) &&
+                    Mathf.Approximately(manager.adaptiveCamera.idleRevealFieldOfView, 28f),
+                "The camera must use a 36-degree gameplay FOV and a 28-degree idle FOV.");
+            Require(manager.adaptiveCamera.idleDelay >= 3f &&
                     manager.adaptiveCamera.marshRevealScreenX < .5f && manager.adaptiveCamera.customerRevealScreenX > .5f &&
                     manager.adaptiveCamera.gardenRevealScreenY > .5f,
-                "Idle camera reveals must frame the marsh, garden, and customer road edges.");
+                "Idle camera framing must reveal the marsh, garden, and customer road edges.");
             Require(UnityEngine.Object.FindObjectsByType<WorldLabelFader>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 5,
                 "Kitchen station labels need proximity fading.");
             Require(UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None).Count(light => light.type == LightType.Point) >= 8,

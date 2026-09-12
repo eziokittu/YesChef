@@ -9,6 +9,7 @@ namespace YesChef
         public FridgeMenuController menu;
         public RefrigeratorAnimator animator;
         public WorldLabelFader labelFader;
+        [Min(0.2f)] public float pickupReachSeconds = 0.6f;
 
         private Coroutine takeRoutine;
         private PlayerController activePlayer;
@@ -52,7 +53,7 @@ namespace YesChef
         {
             while (animator != null && !animator.IsPickupReady) yield return null;
 
-            const float reachSeconds = 0.9f;
+            var reachSeconds = Mathf.Max(0.2f, pickupReachSeconds);
             player.PlayFridgeReach(reachSeconds);
             yield return new WaitForSeconds(reachSeconds * 0.52f);
 

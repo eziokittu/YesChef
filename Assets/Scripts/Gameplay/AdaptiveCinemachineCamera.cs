@@ -4,8 +4,8 @@ using UnityEngine;
 namespace YesChef
 {
     /// <summary>
-    /// Keeps the Cinemachine camera wide while the chef moves and gradually
-    /// narrows the perspective field of view after the chef becomes idle.
+    /// Uses the requested gameplay and idle vertical fields of view while
+    /// smoothly shifting framing toward nearby exterior details during idle.
     /// </summary>
     public sealed class AdaptiveCinemachineCamera : MonoBehaviour
     {
@@ -13,8 +13,8 @@ namespace YesChef
         public PlayerController player;
 
         [Header("Perspective zoom")]
-        [Range(20f, 80f)] public float movingFieldOfView = 52f;
-        [Range(20f, 80f)] public float idleFieldOfView = 42f;
+        [Range(20f, 80f)] public float movingFieldOfView = 36f;
+        [Range(20f, 80f)] public float idleFieldOfView = 28f;
         [Min(0f)] public float idleDelay = 3f;
         [Min(0.05f)] public float zoomSmoothTime = 1.8f;
         [Header("Idle edge reveals")]
@@ -23,7 +23,7 @@ namespace YesChef
         public float gardenRevealScreenY = 0.61f;
         public float horizontalEdgeThreshold = 3.8f;
         public float gardenEdgeThreshold = -3.25f;
-        public float idleRevealFieldOfView = 58f;
+        public float idleRevealFieldOfView = 28f;
 
         private float idleSeconds;
         private float zoomVelocity;

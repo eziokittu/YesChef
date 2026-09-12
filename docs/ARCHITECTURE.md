@@ -66,7 +66,7 @@ The most important design decision is separating definitions, runtime state, and
 
 The stations use the same pattern: validate the held item, transfer ownership from the inventory to a station anchor, advance a timer, change preparation state, and allow collection. Two separate `StoveStation` instances make the cooking positions visually and logically independent.
 
-The real Camera contains the scene's single enabled `AudioListener` and a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. `AdaptiveCinemachineCamera` waits for three idle seconds before slowly changing the perspective field of view, keeping camera responsibilities separate from movement.
+The real Camera contains the scene's single enabled `AudioListener` and a `CinemachineBrain`; a `CinemachineVirtualCamera` follows the player through a framing transposer. The lens uses a 36-degree vertical FOV during play, while `AdaptiveCinemachineCamera` waits for three idle seconds before smoothly zooming to 28 degrees and shifting framing toward nearby exterior details.
 
 The chef and customer hierarchy separates facing/route movement, procedural posing, and Blender model-axis correction. A dedicated motion root sits above the imported visual, while Blender-authored `ArmPivot_*` and `LegPivot_*` transforms provide correct shoulder/hip rotation. This prevents navigation rotation and animation from fighting each other. Refrigerator selection is asynchronous: shortcuts are accepted only from the open catalogue, wait for visible door openness, lock the chef for a short reach pose, create the ingredient midway, then close and unlock.
 

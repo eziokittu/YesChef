@@ -114,60 +114,106 @@ def add_reverb(stereo):
     return wet
 
 
-def make_music(name, tempo, chords, melody, mood):
+def warm_pad_note(note, duration, velocity=.12):
+    """A low, breathy tonal bed without the buzz of a saw/square synth."""
+    t = seconds(duration)
+    f = midi(note)
+    vibrato = .0018 * np.sin(2 * np.pi * .18 * t)
+    phase = 2 * np.pi * f * (t + vibrato)
+    tone = np.sin(phase) + .18 * np.sin(phase * 2 + .3) + .045 * np.sin(phase * 3)
+    attack = np.clip(t / .85, 0, 1) ** 1.4
+    release = np.clip((duration - t) / 1.15, 0, 1) ** 1.2
+    return lowpass(tone * attack * release, 2400) * velocity / 1.22
+
+
+def soft_chime_note(note, duration, velocity=.1):
+    """Rounded wooden/chime accent used very quietly as environmental colour."""
+    t = seconds(duration)
+    f = midi(note)
+    tone = np.sin(2*np.pi*f*t) + .16*np.sin(2*np.pi*f*2.01*t+.25)
+    envelope = (1 - np.exp(-24*t)) * np.exp(-3.1*t/max(duration, .1))
+    return lowpass(tone * envelope, 3600) * velocity / 1.12
+
+
+def make_environmental_music(name, tempo, chords, piano_patterns, melody, accents, mood):
+    """Compose a spacious, consonant piano piece over a breeze-like tonal bed."""
     beat = 60 / tempo
     bar = beat * 4
     duration = len(chords) * bar
     track = np.zeros((int(duration * SR), 2), dtype=np.float64)
+
     for bar_index, chord in enumerate(chords):
         start = bar_index * bar
-        root = chord[0] - 12
-        add(track, bass_note(root, beat * 2.4, .24), start, -.06)
-        add(track, bass_note(root + 7, beat * 1.9, .18), start + beat * 2, .04)
-        pattern = (0, 2, 1, 3)
-        for step, chord_index in enumerate(pattern):
+
+        # Long low pads create warmth without a prominent or repetitive bass line.
+        for voice, note in enumerate((chord[0] - 12, chord[1], chord[2])):
+            add(track, warm_pad_note(note, bar * 1.08, .045 if voice == 0 else .032),
+                start, -.34 + voice * .34)
+
+        # Each bar has its own sparse piano shape, leaving natural pockets of air.
+        pattern = piano_patterns[bar_index % len(piano_patterns)]
+        for step, chord_index in pattern:
             note = chord[chord_index % len(chord)]
-            add(track, felt_piano_note(note, beat * 1.65, .24), start + step * beat, -.24 + .07 * chord_index)
-        for note in chord:
-            add(track, felt_piano_note(note + 12, bar * .96, .075), start, .28)
+            add(track, felt_piano_note(note, beat * 1.72, .16),
+                start + step * beat, -.22 + .14 * chord_index)
 
-        # No bright percussion: the score should remain a calm background bed.
+    for index, (bar_index, beat_index, note, length) in enumerate(melody):
+        add(track, felt_piano_note(note, beat * length, .18),
+            bar_index * bar + beat_index * beat, .12 + .13 * math.sin(index * .8))
 
-    for index, (bar_index, beat_index, note) in enumerate(melody):
-        add(track, felt_piano_note(note, beat * 2.1, .25), bar_index * bar + beat_index * beat,
-            .15 + .16 * math.sin(index))
+    for index, (bar_index, beat_index, note) in enumerate(accents):
+        add(track, soft_chime_note(note, beat * 2.4, .065),
+            bar_index * bar + beat_index * beat, -.18 if index % 2 == 0 else .2)
 
-    # Very soft environmental bed gives each original track its own identity.
-    noise = lowpass(RNG.normal(0, 1, len(track)), 420 if mood == "morning" else 330)
-    bed = noise * (.006 if mood == "morning" else .008)
-    track[:, 0] += bed
-    track[:, 1] += np.roll(bed, int(.019 * SR))
+    # Broad, very quiet filtered air suggests an open window. It has no short loop
+    # or obvious pulse, so the dedicated garden/marsh ambience remains distinct.
+    air = lowpass(RNG.normal(0, 1, len(track)), 290 if mood == "garden" else 230)
+    drift = .0038 + .0012 * np.sin(2*np.pi*(.037 if mood == "garden" else .029)*np.arange(len(track))/SR)
+    track[:, 0] += air * drift
+    track[:, 1] += np.roll(air, int(.031 * SR)) * drift
+
     track = add_reverb(track)
-    track[:, 0] = lowpass(track[:, 0], 5200)
-    track[:, 1] = lowpass(track[:, 1], 5200)
+    track[:, 0] = lowpass(track[:, 0], 4100)
+    track[:, 1] = lowpass(track[:, 1], 4100)
     envelope = np.ones(len(track))
-    edge = int(1.2 * SR)
-    envelope[:edge] = np.linspace(0, 1, edge)
-    envelope[-edge:] = np.linspace(1, 0, edge)
-    write(name, track * envelope[:, None], .68)
+    edge = int(1.5 * SR)
+    envelope[:edge] = np.sin(np.linspace(0, np.pi/2, edge)) ** 2
+    envelope[-edge:] = np.cos(np.linspace(0, np.pi/2, edge)) ** 2
+    write(name, track * envelope[:, None], .56)
 
 
 def make_music_tracks():
+    # Track 1: an open, major-key morning theme with a small descending answer.
     morning_chords = [
-        (60,64,67,71), (57,60,64,67), (62,65,69,72), (55,59,62,65),
-        (60,64,67,71), (64,67,71,74), (62,65,69,72), (55,59,62,65),
+        (60,64,67,71), (59,62,67,71), (57,60,64,69), (55,59,62,67),
+        (60,64,67,71), (64,67,71,76), (57,60,64,69), (55,59,62,67),
+        (60,64,67,71), (62,65,69,72), (57,60,64,69), (55,59,62,67),
     ]
-    morning_melody = [(0,0,76),(0,2,79),(1,1,76),(2,0,77),(2,2,81),(3,1,74),
-                      (4,0,79),(4,2,76),(5,1,83),(6,0,81),(6,2,77),(7,1,74)]
-    make_music("Music_CozyMorning.wav", 56, morning_chords, morning_melody, "morning")
+    patterns = [((0,0),(1.5,2),(3,1)), ((.5,1),(2,2)), ((0,2),(2.5,1)), ((1,0),(3,2))]
+    morning_melody = [
+        (0,.5,76,1.7), (1,2,74,1.4), (2,.5,72,1.8), (3,2,71,1.5),
+        (4,.5,76,1.7), (5,2,79,1.5), (6,.5,76,1.8), (7,2,74,1.5),
+        (8,.5,79,1.6), (9,2,77,1.5), (10,.5,76,1.8), (11,2,74,1.6),
+    ]
+    morning_accents = [(2,3.25,84), (6,3.25,83), (10,3.25,81)]
+    make_environmental_music("Music_CozyMorning.wav", 66, morning_chords, patterns,
+                             morning_melody, morning_accents, "garden")
 
+    # Track 2: a gentler reflective theme; still major and warm, never gloomy.
     evening_chords = [
-        (65,69,72,76), (62,65,69,72), (67,70,74,77), (60,64,67,70),
-        (65,69,72,76), (57,60,64,67), (62,65,69,72), (60,64,67,70),
+        (65,69,72,76), (60,65,69,72), (62,65,69,74), (60,64,67,72),
+        (65,69,72,76), (57,60,65,69), (62,65,69,74), (60,64,67,72),
+        (57,60,65,69), (65,69,72,76), (62,65,69,74), (60,64,67,72),
     ]
-    evening_melody = [(0,0,81),(0,2,84),(1,1,81),(2,0,82),(2,2,86),(3,1,79),
-                      (4,0,81),(5,1,76),(6,0,77),(6,2,81),(7,1,79),(8,0,84),(9,1,76)]
-    make_music("Music_EveningCafe.wav", 52, evening_chords, evening_melody, "evening")
+    evening_patterns = [((.5,0),(2.5,2)), ((0,1),(2,2),(3.25,0)), ((1,2),(3,1)), ((.5,1),(2.5,2))]
+    evening_melody = [
+        (0,1,81,1.8), (1,3,79,1.2), (2,1,77,1.8), (3,3,76,1.2),
+        (4,1,81,1.8), (5,3,77,1.2), (6,1,74,1.8), (7,3,76,1.3),
+        (8,1,77,1.7), (9,3,81,1.2), (10,1,79,1.8), (11,3,76,1.2),
+    ]
+    evening_accents = [(1,3.5,84), (5,3.5,81), (9,3.5,84)]
+    make_environmental_music("Music_EveningCafe.wav", 62, evening_chords, evening_patterns,
+                             evening_melody, evening_accents, "pond")
 
 
 def impulse_hits(duration, times, tone_freq, noise_low, noise_high):

@@ -31,7 +31,7 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 ## Implemented features
 
 - Perspective top-down 3D kitchen driven by Cinemachine with smooth player follow
-- Wider angled camera with slow zoom-in only after three idle seconds and movement zoom-out while keeping the chef centred
+- 36-degree vertical FOV while playing and a smooth 28-degree idle zoom for 16:9 landscape presentation
 - One starting customer plus staggered, randomized arrivals across four serving tables
 - 50/50 selection between two- and three-ingredient orders
 - All 36 ordered two- and three-ingredient recipe variations supported and validator-checked
@@ -80,7 +80,7 @@ Regenerate the models with Blender 5.2+ from the repository root:
 - Output: `Assets/Audio/Generated/`
 - Mix: background music at 72%, kitchen SFX at 22%, and exterior/spatial ambience at 16% or below
 - Format: 44.1 kHz, 16-bit WAV; stereo music and mono positional effects
-- Includes two 34-37 second music tracks, eight kitchen cues, two customer voice gestures, two soft environmental beds, five randomized wildlife details, and one trash-fly loop
+- Includes two 44-46 second music tracks, eight kitchen cues, two customer voice gestures, two soft environmental beds, five randomized wildlife details, and one trash-fly loop
 
 Regenerate the complete audio pack with:
 

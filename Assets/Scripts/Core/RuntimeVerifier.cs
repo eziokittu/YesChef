@@ -65,6 +65,10 @@ namespace YesChef
             {
                 StartCoroutine(ProbeCharacterAnimationAndQuit());
             }
+            else if (Array.IndexOf(arguments, "-yeschef-camera-fov-probe") >= 0)
+            {
+                StartCoroutine(ProbeCameraFieldOfViewAndQuit());
+            }
             else if (Array.IndexOf(arguments, "-yeschef-quit-modal-probe") >= 0)
             {
                 StartCoroutine(ProbeQuitModalAndQuit());
@@ -89,6 +93,32 @@ namespace YesChef
                              music.isPlaying && music.timeSamples > startSample ? 0 : 1);
         }
 
+        private static IEnumerator ProbeCameraFieldOfViewAndQuit()
+        {
+            yield return null;
+            var game = GameManager.Instance;
+            var adaptiveCamera = game.adaptiveCamera;
+            adaptiveCamera.idleDelay = 100f;
+            game.BeginGame();
+            yield return new WaitForEndOfFrame();
+
+            var gameplayFieldOfView = adaptiveCamera.virtualCamera.m_Lens.FieldOfView;
+            adaptiveCamera.idleDelay = 0f;
+            adaptiveCamera.zoomSmoothTime = .05f;
+            yield return new WaitForSecondsRealtime(.5f);
+            var idleFieldOfView = adaptiveCamera.virtualCamera.m_Lens.FieldOfView;
+
+            var passed = Mathf.Abs(adaptiveCamera.movingFieldOfView - 36f) < .01f &&
+                         Mathf.Abs(adaptiveCamera.idleFieldOfView - 28f) < .01f &&
+                         Mathf.Abs(adaptiveCamera.idleRevealFieldOfView - 28f) < .01f &&
+                         Mathf.Abs(gameplayFieldOfView - 36f) < .05f &&
+                         Mathf.Abs(idleFieldOfView - 28f) < .15f;
+            Debug.Log($"YES_CHEF_CAMERA_FOV_PROBE: gameplay={gameplayFieldOfView:0.00}, " +
+                      $"idle={idleFieldOfView:0.00}, configuredMoving={adaptiveCamera.movingFieldOfView:0.00}, " +
+                      $"configuredIdle={adaptiveCamera.idleFieldOfView:0.00}, passed={passed}");
+            Application.Quit(passed ? 0 : 1);
+        }
+
         private static IEnumerator CaptureAndQuit(bool beginGame, bool openFridge, bool lightStove, bool pauseMenu,
             bool quitMenu, bool exterior, bool customerSide, bool night)
         {
@@ -100,11 +130,11 @@ namespace YesChef
                 GameManager.Instance.fridgeMenu.Open(GameManager.Instance.player);
                 var refrigerator = GameManager.Instance.fridgeMenu.refrigerator;
                 var queued = refrigerator.TryTake(GameManager.Instance.player, IngredientType.Cheese);
-                yield return new WaitForSecondsRealtime(.58f);
+                yield return new WaitForSecondsRealtime(.35f);
                 Debug.Log($"YES_CHEF_FRIDGE_REACH: queued={queued}, door={refrigerator.animator.OpenAmount:0.00}, " +
                           $"reaching={GameManager.Instance.player.characterMotion.IsPerformingAction}, " +
                           $"held={GameManager.Instance.player.Inventory.HasItem}");
-                yield return new WaitForSecondsRealtime(.68f);
+                yield return new WaitForSecondsRealtime(.55f);
                 Debug.Log($"YES_CHEF_FRIDGE_PICKUP_COMPLETE: held={GameManager.Instance.player.Inventory.HasItem}, " +
                           $"locked={GameManager.Instance.player.IsActionLocked}, menu={GameManager.Instance.fridgeMenu.IsOpen}");
                 GameManager.Instance.player.Inventory.Clear();

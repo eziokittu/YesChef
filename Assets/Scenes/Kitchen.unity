@@ -30775,6 +30775,7 @@ MonoBehaviour:
   menu: {fileID: 1933361060}
   animator: {fileID: 779064010}
   labelFader: {fileID: 2120127625}
+  pickupReachSeconds: 0.6
 --- !u!4 &779064009
 Transform:
   m_ObjectHideFlags: 0
@@ -30808,7 +30809,7 @@ MonoBehaviour:
   doorHinge: {fileID: 1027916855}
   interiorLight: {fileID: 769939294}
   openAngle: 105
-  animationSpeed: 3.2
+  animationSpeed: 4.8
 --- !u!65 &779064011
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -80700,7 +80701,7 @@ Camera:
     height: 1
   near clip plane: 0.15
   far clip plane: 120
-  field of view: 42.0001
+  field of view: 35.99991
   orthographic: 0
   orthographic size: 10
   m_Depth: 0
@@ -80727,7 +80728,7 @@ Transform:
   m_GameObject: {fileID: 1718347216}
   serializedVersion: 2
   m_LocalRotation: {x: 0.53729963, y: 0, z: 0, w: 0.8433914}
-  m_LocalPosition: {x: 0, y: 13.9473715, z: -8.529746}
+  m_LocalPosition: {x: 0, y: 13.96182, z: -8.498761}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -95019,8 +95020,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::YesChef.AdaptiveCinemachineCamera
   virtualCamera: {fileID: 2060076760}
   player: {fileID: 2105878194}
-  movingFieldOfView: 52
-  idleFieldOfView: 42
+  movingFieldOfView: 36
+  idleFieldOfView: 28
   idleDelay: 3
   zoomSmoothTime: 1.8
   marshRevealScreenX: 0.35
@@ -95028,7 +95029,7 @@ MonoBehaviour:
   gardenRevealScreenY: 0.61
   horizontalEdgeThreshold: 3.8
   gardenEdgeThreshold: -3.25
-  idleRevealFieldOfView: 58
+  idleRevealFieldOfView: 28
 --- !u!114 &2060076760
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -95050,7 +95051,7 @@ MonoBehaviour:
   m_LookAt: {fileID: 0}
   m_Follow: {fileID: 2105878195}
   m_Lens:
-    FieldOfView: 42.0001
+    FieldOfView: 35.99991
     OrthographicSize: 10
     NearClipPlane: 0.15
     FarClipPlane: 120
@@ -95077,7 +95078,7 @@ Transform:
   m_GameObject: {fileID: 2060076758}
   serializedVersion: 2
   m_LocalRotation: {x: 0.53729963, y: 0, z: 0, w: 0.8433914}
-  m_LocalPosition: {x: 0, y: 13.9473715, z: -8.529746}
+  m_LocalPosition: {x: 0, y: 13.96182, z: -8.498761}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

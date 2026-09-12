@@ -11,7 +11,7 @@ namespace YesChef
         public Transform doorHinge;
         public Light interiorLight;
         public float openAngle = 105f;
-        public float animationSpeed = 3.2f;
+        public float animationSpeed = 4.8f;
 
         private Quaternion closedRotation;
         private float openness;

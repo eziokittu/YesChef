@@ -701,9 +701,11 @@ namespace YesChef.Editor
             var visual = AddModel(model, "Refrigerator Visual", Vector3.zero, Quaternion.Euler(0, 180, 0), Vector3.one, root.transform);
             var station = root.AddComponent<RefrigeratorStation>();
             station.factory = factory;
+            station.pickupReachSeconds = 0.6f;
             station.labelFader = CreateStationLabel(root.transform, "Fridge Label", new Vector3(0, 3.05f, 0), "FRIDGE", 30, new Vector2(270, 78));
             var animator = root.AddComponent<RefrigeratorAnimator>();
             animator.doorHinge = FindChild(visual.transform, "MainDoorHinge");
+            animator.animationSpeed = 4.8f;
             var lightObject = new GameObject("Refrigerator Interior Light");
             lightObject.transform.SetParent(root.transform, false);
             lightObject.transform.localPosition = new Vector3(0, 1.25f, -0.9f);
@@ -840,7 +842,7 @@ namespace YesChef.Editor
             cameraObject.tag = "MainCamera";
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = false;
-            camera.fieldOfView = 52f;
+            camera.fieldOfView = 36f;
             camera.nearClipPlane = 0.15f;
             camera.farClipPlane = 120f;
             camera.clearFlags = CameraClearFlags.SolidColor;
@@ -852,7 +854,7 @@ namespace YesChef.Editor
             var virtualCamera = virtualCameraObject.AddComponent<CinemachineVirtualCamera>();
             virtualCamera.Follow = player.transform;
             virtualCamera.LookAt = null;
-            virtualCamera.m_Lens.FieldOfView = 52f;
+            virtualCamera.m_Lens.FieldOfView = 36f;
             virtualCamera.m_Lens.NearClipPlane = 0.15f;
             virtualCamera.m_Lens.FarClipPlane = 120f;
             virtualCamera.transform.position = player.transform.position + new Vector3(0, 12.8f, -6.0f);
@@ -869,8 +871,9 @@ namespace YesChef.Editor
             var controller = virtualCameraObject.AddComponent<AdaptiveCinemachineCamera>();
             controller.virtualCamera = virtualCamera;
             controller.player = player;
-            controller.movingFieldOfView = 52f;
-            controller.idleFieldOfView = 42f;
+            controller.movingFieldOfView = 36f;
+            controller.idleFieldOfView = 28f;
+            controller.idleRevealFieldOfView = 28f;
             controller.idleDelay = 3f;
             controller.zoomSmoothTime = 1.8f;
             return (virtualCamera, controller);
