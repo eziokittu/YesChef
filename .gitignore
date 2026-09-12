@@ -76,8 +76,9 @@ InitTestScene*.unity*
 Thumbs.db
 Desktop.ini
 
-# Hiring-test source document (keep locally, do not redistribute)
-New_Developer_Test.pdf
+# Hiring-test briefs and local continuation notes (keep locally, do not redistribute)
+/*.pdf
+/yeschefprogress*.md
 
 # Local tooling and scratch metadata
 /.codex/
