@@ -10,6 +10,7 @@ namespace YesChef
         public float interactionRadius = 1.65f;
         public Transform visualRoot;
         public CharacterIdleMotion characterMotion;
+        public MobileInputController mobileInput;
 
         public PlayerInventory Inventory { get; private set; }
         public Vector3 StartPosition { get; private set; }
@@ -65,7 +66,7 @@ namespace YesChef
 
             if (IsActionLocked) return;
 
-            if (Input.GetKeyDown(KeyCode.E) && currentInteractable != null)
+            if ((Input.GetKeyDown(KeyCode.E) || (mobileInput != null && mobileInput.ConsumeActionPressed())) && currentInteractable != null)
             {
                 currentInteractable.Interact(this);
             }
@@ -97,7 +98,10 @@ namespace YesChef
 
         private void Move()
         {
-            var input = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+            var keyboard = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+            var screen = mobileInput != null ? mobileInput.Movement : Vector2.zero;
+            var combined = keyboard + screen;
+            var input = new Vector3(combined.x, 0f, combined.y);
             input = Vector3.ClampMagnitude(input, 1f);
             IsMoving = input.sqrMagnitude > 0.01f;
             characterController.SimpleMove(input * moveSpeed);

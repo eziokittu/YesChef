@@ -21,12 +21,16 @@ namespace YesChef.Editor
     public static class YesChefSceneBuilder
     {
         private const string ScenePath = "Assets/Scenes/Kitchen.unity";
+        private const string CoverArtPath = "Assets/UI/Brand/YesChefCover.png";
 
-        private static readonly Color Cream = new(0.96f, 0.91f, 0.78f, 1f);
-        private static readonly Color Ink = new(0.07f, 0.09f, 0.11f, 1f);
-        private static readonly Color Tomato = new(0.90f, 0.20f, 0.15f, 1f);
-        private static readonly Color Panel = new(0.045f, 0.06f, 0.075f, 0.96f);
+        private static readonly Color Cream = new(1f, 0.95f, 0.80f, 1f);
+        private static readonly Color Ink = new(0.025f, 0.14f, 0.10f, 1f);
+        private static readonly Color Tomato = new(0.96f, 0.31f, 0.28f, 1f);
+        private static readonly Color Honey = new(1f, 0.77f, 0.16f, 1f);
+        private static readonly Color Mint = new(0.38f, 0.68f, 0.49f, 1f);
+        private static readonly Color Panel = new(0.025f, 0.20f, 0.13f, 0.97f);
         private static TMP_FontAsset defaultFont;
+        private static TMP_FontAsset menuFont;
 
         [MenuItem("Tools/Yes Chef/Build Top-Down World")]
         public static void BuildPlayableKitchen()
@@ -109,15 +113,20 @@ namespace YesChef.Editor
         {
             const string fontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
             defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
-            if (defaultFont != null) return;
+            if (defaultFont == null)
+            {
+                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(TMP_Text).Assembly);
+                if (package == null) throw new FileNotFoundException("The Unity UI/TextMesh Pro package is not installed.");
+                var resourcesPackage = Path.Combine(package.resolvedPath, "Package Resources", "TMP Essential Resources.unitypackage");
+                AssetDatabase.ImportPackage(resourcesPackage, false);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
+                if (defaultFont == null) throw new MissingReferenceException("TMP essential resources could not be imported.");
+            }
 
-            var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(TMP_Text).Assembly);
-            if (package == null) throw new FileNotFoundException("The Unity UI/TextMesh Pro package is not installed.");
-            var resourcesPackage = Path.Combine(package.resolvedPath, "Package Resources", "TMP Essential Resources.unitypackage");
-            AssetDatabase.ImportPackage(resourcesPackage, false);
-            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            defaultFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
-            if (defaultFont == null) throw new MissingReferenceException("TMP essential resources could not be imported.");
+            // Keep the project self-contained: the cover-like menu personality is
+            // produced with original styling around the already-present TMP face.
+            menuFont = defaultFont;
         }
 
         private static void ConfigureBrandTexture()
@@ -125,6 +134,7 @@ namespace YesChef.Editor
             ConfigureSprite("Assets/UI/Brand/GlitchbongLogo.png");
             ConfigureSprite("Assets/UI/Brand/GitHub_Invertocat_White.png");
             ConfigureSprite("Assets/UI/CustomerSpeechBubble.png");
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(CoverArtPath) != null) ConfigureSprite(CoverArtPath);
         }
 
         private static void ConfigureSprite(string path)
@@ -827,10 +837,11 @@ namespace YesChef.Editor
                 window.exitPoint = CreatePoint(root.transform, "Exit Point", new Vector3(-9.2f, 0, exitZ));
                 window.orderText = CreateWorldText(root.transform, "Table Order Card", new Vector3(0.3f, 1.92f, 0), "ORDER", 32, new Vector2(570, 125));
                 window.scorePopupText = CreateWorldText(root.transform, "Score Popup", new Vector3(0.3f, 3.05f, 0), string.Empty, 52, new Vector2(420, 100));
-                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 3.35f, 0), "Welcome!", 35, new Vector2(500, 208));
+                window.dialogueText = CreateCloudText(customerRoot, "Customer Dialogue", new Vector3(-1.1f, 2.88f, 0), "Welcome!", 35, new Vector2(480, 200));
                 window.dialogueDisplaySeconds = 6f;
                 window.dialogueBubble = window.dialogueText.transform.parent.gameObject;
                 window.dialogueAnimator = window.dialogueBubble.GetComponent<DialogueBubbleAnimator>();
+                window.dialogueLayout = window.dialogueBubble.GetComponent<DialogueBubbleLayout>();
                 result.Add(window);
             }
             return result;
@@ -920,13 +931,16 @@ namespace YesChef.Editor
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -5), new Vector2(1200, 46), new Color(1f, 0.78f, 0.20f));
 
             var fridgeMenu = CreateFridgeMenu(canvas.transform, refrigerator, player);
+            var mobileInput = CreateMobileControls(canvas.transform);
+            player.mobileInput = mobileInput;
 
             var instructions = CreatePanel(canvas.transform, "Instructions Panel", new Vector2(1040, 860));
-            CreateScreenText(instructions.transform, "Title", "YES CHEF!", 76, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(900, 94), Tomato);
-            CreateScreenText(instructions.transform, "Subtitle", "3 MINUTES  |  4 TABLES  |  ONE ITEM AT A TIME", 26, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -115), new Vector2(900, 46), new Color(.73f,.78f,.78f,1));
-            CreateScreenText(instructions.transform, "How To Play",
+            DecorateMenuCard(instructions.transform, new Vector2(1040, 860));
+            CreateMenuText(instructions.transform, "Title", "YES CHEF!", 82, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(900, 94), Cream);
+            CreateMenuText(instructions.transform, "Subtitle", "3 MINUTES  •  4 TABLES  •  ONE ITEM AT A TIME", 27, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -115), new Vector2(900, 46), Honey);
+            CreateMenuText(instructions.transform, "How To Play",
                 "<color=#63D66B><b>[1] FRIDGE</b></color>  Pick one ingredient with E or 1 / 2 / 3.\n\n" +
                 "<color=#FFD04A><b>[2] PREPARE</b></color>  Chop vegetables for 2s; cook meat for 6s; cheese is ready.\n\n" +
                 "<color=#63B8FF><b>[3] SERVE</b></color>  Match the table card. Faster complete orders score more.\n\n" +
@@ -938,38 +952,48 @@ namespace YesChef.Editor
             CreateBrandCredits(instructions.transform, new Vector2(0, 22));
 
             var pause = CreateScreenOverlay(canvas.transform, "Pause Overlay");
-            var pauseCard = CreatePanel(pause.transform, "Pause Card", new Vector2(760, 570));
-            CreateScreenText(pauseCard.transform, "Paused", "PAUSED", 60, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -38), new Vector2(650, 88), Tomato);
-            var pauseDetails = CreateScreenText(pauseCard.transform, "Pause Details", "CURRENT SCORE  0      BEST  0", 25, TextAlignmentOptions.Center,
+            var pauseCard = CreatePanel(pause.transform, "Pause Card", new Vector2(760, 640));
+            DecorateMenuCard(pauseCard.transform, new Vector2(760, 640));
+            CreateMenuText(pauseCard.transform, "Paused", "PAUSED", 64, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -38), new Vector2(650, 88), Cream);
+            var pauseDetails = CreateMenuText(pauseCard.transform, "Pause Details", "CURRENT SCORE  0      BEST  0", 25, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(650, 150), Cream);
-            var resumeButton = CreateButton(pauseCard.transform, "Resume Button", "RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -18), new Vector2(300, 68));
-            var pauseQuitButton = CreateButton(pauseCard.transform, "Pause Quit Button", "QUIT GAME", new Vector2(0.5f, 0.5f), new Vector2(0, -102), new Vector2(280, 60));
-            var musicToggle = CreateToggle(pauseCard.transform, "Music Toggle", "MUSIC", new Vector2(-145, 48), audio.MusicEnabled);
-            var sfxToggle = CreateToggle(pauseCard.transform, "SFX Toggle", "SOUND EFFECTS", new Vector2(145, 48), audio.SfxEnabled);
+            var resumeButton = CreateButton(pauseCard.transform, "Resume Button", "RESUME", new Vector2(0.5f, 0.5f), new Vector2(0, -6), new Vector2(300, 68));
+            var pauseQuitButton = CreateButton(pauseCard.transform, "Pause Quit Button", "QUIT GAME", new Vector2(0.5f, 0.5f), new Vector2(0, -90), new Vector2(280, 60));
+            SetButtonPalette(pauseQuitButton, Mint, new Color(.46f, .79f, .67f), new Color(.25f, .57f, .48f), Ink);
+            var controlsToggle = CreateToggle(pauseCard.transform, "Screen Controls Toggle", "SHOW SCREEN CONTROLS", new Vector2(0, 116), true);
+            mobileInput.visibilityToggle = controlsToggle;
+            var musicToggle = CreateToggle(pauseCard.transform, "Music Toggle", "MUSIC", new Vector2(-145, 60), audio.MusicEnabled);
+            var sfxToggle = CreateToggle(pauseCard.transform, "SFX Toggle", "SOUND EFFECTS", new Vector2(145, 60), audio.SfxEnabled);
             UnityEventTools.AddPersistentListener(musicToggle.onValueChanged, audio.SetMusicEnabled);
             UnityEventTools.AddPersistentListener(sfxToggle.onValueChanged, audio.SetSfxEnabled);
+            UnityEventTools.AddPersistentListener(controlsToggle.onValueChanged, mobileInput.SetControlsEnabled);
             CreateBrandCredits(pause.transform, new Vector2(0, 122));
 
             var quitConfirmation = CreateScreenOverlay(canvas.transform, "Quit Confirmation Overlay");
             var quitCard = CreatePanel(quitConfirmation.transform, "Quit Confirmation Card", new Vector2(720, 500));
-            CreateScreenText(quitCard.transform, "Quit Title", "ONE MORE ORDER?", 54, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -42), new Vector2(620, 78), Tomato);
-            CreateScreenText(quitCard.transform, "Quit Message", "The kitchen is still warm and your customers are hungry.\nStay for one more delicious service?", 28,
+            DecorateMenuCard(quitCard.transform, new Vector2(720, 500));
+            CreateMenuText(quitCard.transform, "Quit Title", "ONE MORE ORDER?", 58, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -42), new Vector2(620, 78), Cream);
+            CreateMenuText(quitCard.transform, "Quit Message", "The kitchen is still warm and your customers are hungry.\nStay for one more delicious service?", 28,
                 TextAlignmentOptions.Center, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -138), new Vector2(610, 105), Cream);
             var cancelQuitButton = CreateButton(quitCard.transform, "Keep Cooking Button", "KEEP COOKING", new Vector2(0.5f, 0.5f), new Vector2(-155, -40), new Vector2(280, 68));
             var confirmQuitButton = CreateButton(quitCard.transform, "Confirm Quit Button", "YES, QUIT", new Vector2(0.5f, 0.5f), new Vector2(155, -40), new Vector2(230, 68));
+            SetButtonPalette(confirmQuitButton, Mint, new Color(.46f, .79f, .67f), new Color(.25f, .57f, .48f), Ink);
             CreateBrandCredits(quitConfirmation.transform, new Vector2(0, 122));
 
             var results = CreatePanel(canvas.transform, "Results Panel", new Vector2(700, 610));
-            CreateScreenText(results.transform, "Game Over", "SERVICE OVER!", 60, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -48), new Vector2(540, 90), Tomato);
-            var newHighScore = CreateScreenText(results.transform, "New High Score", string.Empty, 35, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -145), new Vector2(540, 60), new Color(1f, 0.78f, 0.2f));
-            var resultScore = CreateScreenText(results.transform, "Result Score", "Final score: 0", 38, TextAlignmentOptions.Center,
+            DecorateMenuCard(results.transform, new Vector2(700, 610));
+            CreateMenuText(results.transform, "Game Over", "SERVICE OVER!", 64, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -48), new Vector2(540, 90), Cream);
+            var newHighScore = CreateMenuText(results.transform, "New High Score", string.Empty, 35, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -145), new Vector2(540, 60), Honey);
+            var resultScore = CreateMenuText(results.transform, "Result Score", "Final score: 0", 38, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -15), new Vector2(540, 120), Cream);
             var restartButton = CreateButton(results.transform, "Restart Button", "PLAY AGAIN", new Vector2(0.5f, 0), new Vector2(0, 174), new Vector2(290, 72));
             CreateBrandCredits(results.transform, new Vector2(0, 22));
+
+            CreateStartupSplash(canvas.transform);
 
             controlsStrip.SetActive(false);
             pause.SetActive(false);
@@ -980,12 +1004,45 @@ namespace YesChef.Editor
                 pauseQuitButton, cancelQuitButton, confirmQuitButton, fridgeMenu);
         }
 
+        private static void CreateStartupSplash(Transform canvas)
+        {
+            var coverSprite = AssetDatabase.LoadAssetAtPath<Sprite>(CoverArtPath);
+            if (coverSprite == null)
+            {
+                Debug.LogWarning($"Startup cover splash is waiting for the cover artwork at {CoverArtPath}.");
+                return;
+            }
+
+            var splash = new GameObject("Startup Cover Splash", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            splash.transform.SetParent(canvas, false);
+            StretchToParent(splash.GetComponent<RectTransform>());
+            var background = splash.GetComponent<Image>();
+            background.color = Panel;
+            background.raycastTarget = true;
+
+            var artwork = new GameObject("Cover Artwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            artwork.transform.SetParent(splash.transform, false);
+            var artworkRect = artwork.GetComponent<RectTransform>();
+            StretchToParent(artworkRect);
+            artworkRect.offsetMin = new Vector2(28f, 28f);
+            artworkRect.offsetMax = new Vector2(-28f, -28f);
+            var artworkImage = artwork.GetComponent<Image>();
+            artworkImage.sprite = coverSprite;
+            artworkImage.preserveAspect = true;
+            artworkImage.raycastTarget = false;
+
+            var controller = canvas.gameObject.AddComponent<StartupSplashController>();
+            controller.splashRoot = splash;
+            controller.displaySeconds = 2f;
+        }
+
         private static FridgeMenuController CreateFridgeMenu(Transform canvas, RefrigeratorStation refrigerator, PlayerController player)
         {
             var panel = CreateAnchoredPanel(canvas, "Fridge Catalogue", new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(430, 590), new Vector2(1, 0.5f));
-            CreateScreenText(panel.transform, "Title", "FRIDGE", 46, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(370, 65), Tomato);
-            CreateScreenText(panel.transform, "Hint", "Click an ingredient to take it", 22, TextAlignmentOptions.Center,
+            DecorateMenuCard(panel.transform, new Vector2(430, 590));
+            CreateMenuText(panel.transform, "Title", "FRIDGE", 50, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(370, 65), Cream);
+            CreateMenuText(panel.transform, "Hint", "Tap an ingredient to take it", 22, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -82), new Vector2(370, 42));
 
             var scrollObject = new GameObject("Scrollable Ingredient List", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
@@ -994,7 +1051,7 @@ namespace YesChef.Editor
             scrollRectTransform.anchorMin = scrollRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             scrollRectTransform.sizeDelta = new Vector2(380, 390);
             scrollRectTransform.anchoredPosition = new Vector2(0, -30);
-            scrollObject.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.04f, 0.55f);
+            scrollObject.GetComponent<Image>().color = new Color(0.02f, 0.12f, 0.12f, 0.48f);
 
             var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
             viewport.transform.SetParent(scrollObject.transform, false);
@@ -1047,11 +1104,16 @@ namespace YesChef.Editor
             var buttonObject = new GameObject(name + " Button", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
             buttonObject.transform.SetParent(parent, false);
             buttonObject.GetComponent<LayoutElement>().preferredHeight = 112;
-            buttonObject.GetComponent<Image>().color = new Color(color.r * 0.42f, color.g * 0.42f, color.b * 0.42f, 0.98f);
+            buttonObject.GetComponent<Image>().color = new Color(color.r * 0.55f, color.g * 0.55f, color.b * 0.55f, 0.98f);
             var button = buttonObject.GetComponent<Button>();
-            CreateScreenText(buttonObject.transform, "Title", title, 31, TextAlignmentOptions.Left,
+            var buttonColors = button.colors;
+            buttonColors.normalColor = Color.white;
+            buttonColors.highlightedColor = new Color(1f, .94f, .78f, 1f);
+            buttonColors.pressedColor = new Color(.76f, .90f, .82f, 1f);
+            button.colors = buttonColors;
+            CreateMenuText(buttonObject.transform, "Title", title, 31, TextAlignmentOptions.Left,
                 new Vector2(0, 1), new Vector2(0, 1), new Vector2(22, -14), new Vector2(300, 42), Color.white).raycastTarget = false;
-            CreateScreenText(buttonObject.transform, "Description", description, 20, TextAlignmentOptions.Left,
+            CreateMenuText(buttonObject.transform, "Description", description, 20, TextAlignmentOptions.Left,
                 new Vector2(0, 0), new Vector2(0, 0), new Vector2(22, 13), new Vector2(330, 34), Cream).raycastTarget = false;
             return button;
         }
@@ -1073,7 +1135,7 @@ namespace YesChef.Editor
 
         private static TMP_Text CreateCloudText(Transform parent, string name, Vector3 localPosition, string value, float fontSize, Vector2 size)
         {
-            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard), typeof(DialogueBubbleAnimator));
+            var canvasObject = new GameObject(name + " Canvas", typeof(Canvas), typeof(Billboard), typeof(DialogueBubbleAnimator), typeof(DialogueBubbleLayout));
             canvasObject.transform.SetParent(parent, false);
             canvasObject.transform.localPosition = localPosition;
             canvasObject.transform.localScale = Vector3.one * 0.0052f;
@@ -1102,6 +1164,9 @@ namespace YesChef.Editor
             StretchToParent(text.rectTransform);
             text.rectTransform.offsetMin = new Vector2(42, 48);
             text.rectTransform.offsetMax = new Vector2(-70, -52);
+            var layout = canvasObject.GetComponent<DialogueBubbleLayout>();
+            layout.dialogueText = text;
+            layout.Configure(value);
             return text;
         }
 
@@ -1325,10 +1390,12 @@ namespace YesChef.Editor
         private static void CreateBrandCredits(Transform parent, Vector2 bottomPosition)
         {
             var links = parent.gameObject.AddComponent<ExternalLinkButton>();
-            var contact = CreateButton(parent, "Glitchbong Contact Link", "        DEVELOPED BY GLITCHBONG", new Vector2(0.5f, 0), bottomPosition + new Vector2(0, 54), new Vector2(540, 46));
-            var repository = CreateButton(parent, "GitHub Source Link", "        VIEW SOURCE ON GITHUB", new Vector2(0.5f, 0), bottomPosition, new Vector2(540, 46));
+            var contact = CreateButton(parent, "Glitchbong Contact Link", "        DEVELOPED BY GLITCHBONG", new Vector2(0.5f, 0), bottomPosition + new Vector2(0, 54), new Vector2(540, 46), false);
+            var repository = CreateButton(parent, "GitHub Source Link", "        VIEW SOURCE ON GITHUB", new Vector2(0.5f, 0), bottomPosition, new Vector2(540, 46), false);
             contact.GetComponent<Image>().color = new Color(0.14f, 0.48f, 0.18f, 0.94f);
             repository.GetComponent<Image>().color = new Color(0.13f, 0.15f, 0.18f, 0.96f);
+            SetButtonPalette(contact, new Color(.14f, .48f, .18f, .94f), new Color(.20f, .60f, .25f, 1f), new Color(.10f, .36f, .14f, 1f), Color.white);
+            SetButtonPalette(repository, new Color(.13f, .15f, .18f, .96f), new Color(.24f, .27f, .31f, 1f), new Color(.08f, .09f, .11f, 1f), Color.white);
             var logoObject = new GameObject("Glitchbong Logo", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             logoObject.transform.SetParent(contact.transform, false);
             var logoRect = logoObject.GetComponent<RectTransform>();
@@ -1347,6 +1414,106 @@ namespace YesChef.Editor
             UnityEventTools.AddPersistentListener(repository.onClick, links.OpenRepository);
         }
 
+        private static MobileInputController CreateMobileControls(Transform canvas)
+        {
+            var controller = canvas.gameObject.AddComponent<MobileInputController>();
+            var root = new GameObject("Screen Controls", typeof(RectTransform));
+            root.transform.SetParent(canvas, false);
+            var rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, 0f);
+            rect.pivot = new Vector2(.5f, 0f);
+            rect.anchoredPosition = new Vector2(0f, 122f);
+            rect.sizeDelta = new Vector2(620f, 270f);
+            controller.controlsRoot = root;
+
+            var pad = CreateVisualUiImage(root.transform, "Circular Glass Controller", new Vector2(-95f, 128f), new Vector2(246f, 246f), new Color(.90f, 1f, .97f, .14f));
+            pad.rectTransform.anchorMin = pad.rectTransform.anchorMax = new Vector2(.5f, 0f);
+            pad.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            pad.type = Image.Type.Simple;
+            pad.raycastTarget = true;
+            var padOutline = pad.gameObject.AddComponent<Outline>();
+            padOutline.effectColor = new Color(.86f, 1f, .96f, .42f);
+            padOutline.effectDistance = new Vector2(3f, -3f);
+
+            CreateChevron(pad.transform, new Vector2(0f, 76f), 0f);
+            CreateChevron(pad.transform, new Vector2(0f, -76f), 180f);
+            CreateChevron(pad.transform, new Vector2(-76f, 0f), 90f);
+            CreateChevron(pad.transform, new Vector2(76f, 0f), -90f);
+
+            var hub = CreateVisualUiImage(pad.transform, "Controller Hub", Vector2.zero, new Vector2(70f, 70f), new Color(.88f, 1f, .96f, .20f));
+            hub.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            hub.type = Image.Type.Simple;
+            hub.raycastTarget = false;
+
+            var joystick = pad.gameObject.AddComponent<VirtualJoystick>();
+            joystick.input = controller;
+            joystick.handle = hub.rectTransform;
+            joystick.movementRadius = 82f;
+            joystick.deadZone = .12f;
+            CreateTouchButton(root.transform, controller, "Action", "ACTION", new Vector2(190f, 128f), new Vector2(132f, 132f), MobileDirection.Up, true);
+
+            root.SetActive(false);
+            return controller;
+        }
+
+        private static void CreateChevron(Transform parent, Vector2 position, float rotation)
+        {
+            var root = new GameObject("Direction Chevron", typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rootRect = root.GetComponent<RectTransform>();
+            rootRect.anchorMin = rootRect.anchorMax = new Vector2(.5f, .5f);
+            rootRect.sizeDelta = new Vector2(52f, 38f);
+            rootRect.anchoredPosition = position;
+            rootRect.localRotation = Quaternion.Euler(0f, 0f, rotation);
+
+            foreach (var side in new[] { -1f, 1f })
+            {
+                var bar = CreateVisualUiImage(root.transform, "Chevron Stroke", new Vector2(side * 10f, 1f),
+                    new Vector2(9f, 34f), new Color(.96f, 1f, .98f, .86f));
+                bar.rectTransform.localRotation = Quaternion.Euler(0f, 0f, side * 38f);
+                bar.raycastTarget = false;
+            }
+        }
+
+        private static void CreateTouchButton(Transform parent, MobileInputController controller, string name, string label,
+            Vector2 position, Vector2 size, MobileDirection direction, bool isAction = false)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(TouchControlButton));
+            buttonObject.transform.SetParent(parent, false);
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, 0f);
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+
+            var image = buttonObject.GetComponent<Image>();
+            image.sprite = isAction
+                ? AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd")
+                : AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            image.type = isAction ? Image.Type.Simple : Image.Type.Sliced;
+            image.color = isAction ? new Color(.96f, .72f, .25f, .46f) : new Color(.90f, 1f, .97f, .20f);
+            var outline = buttonObject.AddComponent<Outline>();
+            outline.effectColor = isAction ? new Color(1f, .90f, .56f, .62f) : new Color(.88f, 1f, .96f, .42f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            var button = buttonObject.GetComponent<Button>();
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 1f);
+            colors.pressedColor = new Color(.70f, .92f, .86f, 1f);
+            button.colors = colors;
+
+            var labelText = CreateScreenText(buttonObject.transform, "Label", label, isAction ? 24f : 31f, TextAlignmentOptions.Center,
+                new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, size, isAction ? Ink : Color.white);
+            labelText.font = isAction ? menuFont : defaultFont;
+            labelText.raycastTarget = false;
+
+            var touch = buttonObject.GetComponent<TouchControlButton>();
+            touch.input = controller;
+            touch.direction = direction;
+            touch.isAction = isAction;
+        }
+
         private static Toggle CreateToggle(Transform parent, string name, string label, Vector2 position, bool initialValue)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(Toggle));
@@ -1356,14 +1523,14 @@ namespace YesChef.Editor
             rect.pivot = new Vector2(.5f, 0);
             rect.anchoredPosition = position;
             rect.sizeDelta = new Vector2(250, 44);
-            var background = CreateVisualUiImage(root.transform, "Track", new Vector2(-90, 0), new Vector2(52, 28), new Color(.12f,.15f,.17f,1));
-            var check = CreateVisualUiImage(background.transform, "Checkmark", Vector2.zero, new Vector2(20,20), new Color(.35f,.9f,.42f,1));
+            var background = CreateVisualUiImage(root.transform, "Track", new Vector2(-90, 0), new Vector2(52, 28), new Color(.05f,.16f,.16f,1));
+            var check = CreateVisualUiImage(background.transform, "Checkmark", Vector2.zero, new Vector2(20,20), Honey);
             var toggle = root.GetComponent<Toggle>();
             toggle.targetGraphic = background;
             toggle.graphic = check;
             toggle.isOn = initialValue;
-            CreateScreenText(root.transform, "Label", label, 19, TextAlignmentOptions.Left,
-                new Vector2(.5f,.5f), new Vector2(.5f,.5f), new Vector2(30,0), new Vector2(190,40), Cream).raycastTarget = false;
+            CreateMenuText(root.transform, "Label", label, 19, TextAlignmentOptions.Left,
+                new Vector2(.5f,.5f), new Vector2(.5f,.5f), new Vector2(30,0), new Vector2(210,40), Cream).raycastTarget = false;
             return toggle;
         }
 
@@ -1407,9 +1574,29 @@ namespace YesChef.Editor
             image.type = Image.Type.Sliced;
             image.color = Panel;
             var shadow = panel.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, .42f);
+            shadow.effectColor = new Color(.02f, .08f, .08f, .50f);
             shadow.effectDistance = new Vector2(0f, -7f);
             return panel;
+        }
+
+        private static void DecorateMenuCard(Transform parent, Vector2 size)
+        {
+            var outline = parent.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, .86f, .53f, .72f);
+            outline.effectDistance = new Vector2(3f, -3f);
+
+            var stripe = CreateVisualUiImage(parent, "Honey Header Stripe", new Vector2(0f, size.y * .5f - 8f),
+                new Vector2(size.x - 28f, 10f), Honey);
+            stripe.rectTransform.anchorMin = stripe.rectTransform.anchorMax = new Vector2(.5f, .5f);
+            stripe.raycastTarget = false;
+
+            foreach (var x in new[] { -size.x * .5f + 28f, size.x * .5f - 28f })
+            {
+                var dot = CreateVisualUiImage(parent, "Coral Corner Dot", new Vector2(x, size.y * .5f - 27f),
+                    new Vector2(15f, 15f), Tomato);
+                dot.rectTransform.anchorMin = dot.rectTransform.anchorMax = new Vector2(.5f, .5f);
+                dot.raycastTarget = false;
+            }
         }
 
         private static TMP_Text CreateScreenText(Transform parent, string name, string value, float fontSize,
@@ -1433,7 +1620,27 @@ namespace YesChef.Editor
             return text;
         }
 
-        private static Button CreateButton(Transform parent, string name, string label, Vector2 anchor, Vector2 position, Vector2 size)
+        private static TMP_Text CreateMenuText(Transform parent, string name, string value, float fontSize,
+            TextAlignmentOptions alignment, Vector2 anchor, Vector2 pivot, Vector2 position, Vector2 size, Color? color = null)
+        {
+            var text = CreateScreenText(parent, name, value, fontSize, alignment, anchor, pivot, position, size, color);
+            text.font = menuFont;
+            text.fontStyle = FontStyles.Bold;
+            text.characterSpacing = 1.5f;
+            text.outlineWidth = fontSize >= 40f ? .16f : .08f;
+            text.outlineColor = new Color32(4, 54, 35, 235);
+            if (fontSize >= 40f)
+            {
+                var shadow = text.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = new Color(.67f, .38f, .10f, .72f);
+                shadow.effectDistance = new Vector2(0f, -6f);
+                shadow.useGraphicAlpha = true;
+            }
+            return text;
+        }
+
+        private static Button CreateButton(Transform parent, string name, string label, Vector2 anchor, Vector2 position, Vector2 size,
+            bool useMenuFont = true)
         {
             var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             buttonObject.transform.SetParent(parent, false);
@@ -1445,20 +1652,31 @@ namespace YesChef.Editor
             var image = buttonObject.GetComponent<Image>();
             image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             image.type = Image.Type.Sliced;
-            image.color = Tomato;
+            image.color = Honey;
             var button = buttonObject.GetComponent<Button>();
-            var colors = button.colors;
-            colors.normalColor = Tomato;
-            colors.highlightedColor = new Color(1f, 0.38f, 0.24f);
-            colors.pressedColor = new Color(0.68f, 0.08f, 0.06f);
-            button.colors = colors;
+            SetButtonPalette(button, Honey, new Color(1f, .82f, .40f), new Color(.82f, .56f, .14f), Ink);
             var shadow = buttonObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, .34f);
+            shadow.effectColor = new Color(.02f, .10f, .10f, .38f);
             shadow.effectDistance = new Vector2(0f, -4f);
             var text = CreateScreenText(buttonObject.transform, "Label", label, 26, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size, Color.white);
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size, Ink);
+            text.font = useMenuFont ? menuFont : defaultFont;
             text.raycastTarget = false;
             return button;
+        }
+
+        private static void SetButtonPalette(Button button, Color normal, Color highlighted, Color pressed, Color textColor)
+        {
+            var image = button.GetComponent<Image>();
+            image.color = Color.white;
+            var colors = button.colors;
+            colors.normalColor = normal;
+            colors.highlightedColor = highlighted;
+            colors.pressedColor = pressed;
+            colors.selectedColor = highlighted;
+            button.colors = colors;
+            var label = button.GetComponentInChildren<TMP_Text>();
+            if (label != null) label.color = textColor;
         }
 
         private static void CreatePauseGlyph(Transform parent)

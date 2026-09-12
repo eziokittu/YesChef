@@ -201,6 +201,26 @@ namespace YesChef.Editor
                 "Exterior ambience needs one soft loop plus independently scheduled wildlife details per zone.");
             Require(UnityEngine.Object.FindObjectsByType<Toggle>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 2,
                 "Pause UI needs music and sound-effect toggles.");
+            var mobileInput = UnityEngine.Object.FindFirstObjectByType<MobileInputController>(FindObjectsInactive.Include);
+            Require(mobileInput != null && manager.player.mobileInput == mobileInput && mobileInput.controlsRoot != null &&
+                    mobileInput.visibilityToggle != null && mobileInput.visibilityToggle.isOn &&
+                    mobileInput.controlsRoot.GetComponentsInChildren<TouchControlButton>(true)
+                        .Count(control => control.isAction) == 1 &&
+                    mobileInput.controlsRoot.GetComponentsInChildren<TouchControlButton>(true)
+                        .All(control => control.isAction),
+                "WebGL needs one action button and an enabled-by-default pause toggle.");
+            var circularController = UnityEngine.Object.FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(image => image.name == "Circular Glass Controller");
+            var joystick = circularController != null ? circularController.GetComponent<VirtualJoystick>() : null;
+            var screenControlsRect = mobileInput?.controlsRoot?.GetComponent<RectTransform>();
+            Require(circularController != null && circularController.sprite != null && circularController.raycastTarget &&
+                    joystick != null && joystick.input == mobileInput && joystick.handle != null &&
+                    joystick.handle.name == "Controller Hub" && joystick.movementRadius >= 75f &&
+                    joystick.deadZone >= .05f && joystick.deadZone <= .25f &&
+                    UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Count(item => item.name == "Chevron Stroke") == 8 &&
+                    screenControlsRect != null && screenControlsRect.anchoredPosition.y >= 120f,
+                "Screen movement needs one raised drag joystick with a returning hub and four geometry-based chevrons.");
             Require(UnityEngine.Object.FindObjectsByType<WindSway>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 15 &&
                     UnityEngine.Object.FindObjectsByType<WaterSurfaceAnimator>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length >= 50,
                 "Garden wind motion and faceted water movement are incomplete.");
@@ -241,14 +261,35 @@ namespace YesChef.Editor
             Require(trashAnimator != null && trashAnimator.lid != null && trashAnimator.openAngle < 0f &&
                     trashAnimator.lid.position.x > trashAnimator.transform.position.x,
                 "The rotated trash lid must open upward from its right-side hinge.");
+            var dialogueWindows = UnityEngine.Object.FindObjectsByType<CustomerWindow>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             Require(UnityEngine.Object.FindObjectsByType<DialogueBubbleAnimator>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 4 &&
                     !UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                         .Any(item => item.name == "Cloud Puff") &&
-                    UnityEngine.Object.FindObjectsByType<CustomerWindow>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-                        .All(window => window.dialogueAnimator != null &&
-                                       window.dialogueText.rectTransform.parent.GetComponent<RectTransform>().sizeDelta.y >= 200f &&
+                    dialogueWindows.All(window => window.dialogueAnimator != null &&
+                                       window.dialogueLayout != null && !window.dialogueText.enableAutoSizing &&
+                                       window.dialogueLayout.minimumFontSize <= 18f &&
+                                       window.dialogueLayout.extraLongSize.y >= 330f &&
+                                       window.dialogueBubble.transform.localPosition.y < 3f &&
+                                       window.dialogueText.rectTransform.parent.GetComponent<RectTransform>().sizeDelta.y >= 225f &&
                                        window.dialogueText.transform.parent.GetComponentInChildren<Image>().preserveAspect),
-                "Each customer needs one unclipped, aspect-preserved speech bubble and bounce animator.");
+                "Each customer needs one lowered, dynamically sized, aspect-preserved speech bubble and bounce animator.");
+            if (dialogueWindows.Length > 0)
+            {
+                var layout = dialogueWindows[0].dialogueLayout;
+                layout.Configure("Thanks!");
+                var shortCloud = ((RectTransform)layout.transform).sizeDelta;
+                var shortFont = layout.dialogueText.fontSize;
+                const string fitProbe = "Could I please have a freshly prepared vegetable burger with cheese, and make sure every step is finished before serving it to me?";
+                layout.Configure(fitProbe);
+                var longCloud = ((RectTransform)layout.transform).sizeDelta;
+                var longFont = layout.dialogueText.fontSize;
+                var available = new Vector2(longCloud.x - 112f, longCloud.y - 100f);
+                var preferred = layout.dialogueText.GetPreferredValues(fitProbe, available.x, Mathf.Infinity);
+                Require(longCloud.x > shortCloud.x && longCloud.y > shortCloud.y && longFont < shortFont &&
+                        preferred.x <= available.x + 1f && preferred.y <= available.y + 1f,
+                    "Long dialogue must grow its cloud and shrink its text until the complete message fits inside the safe area.");
+                layout.Configure("Welcome!");
+            }
             var pauseCredits = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .FirstOrDefault(item => item.name == "Glitchbong Contact Link" && item.parent.name == "Pause Overlay");
             Require(pauseCredits != null && pauseCredits.anchoredPosition.y >= 170f,
@@ -261,11 +302,24 @@ namespace YesChef.Editor
                 "Four daylight and four night window light cones are required.");
             Require(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset") != null,
                 "TextMesh Pro essential resources are missing.");
+            var menuTitles = UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(text => text.text != "FRIDGE"
+                    ? new[] { "YES CHEF!", "PAUSED", "ONE MORE ORDER?", "SERVICE OVER!" }.Contains(text.text)
+                    : text.transform.parent.name == "Fridge Catalogue")
+                .ToArray();
+            Require(menuTitles.Length == 5 && menuTitles.All(text => (text.fontStyle & FontStyles.Bold) != 0 && text.outlineWidth > .1f),
+                "Every main menu title needs the original bold, outlined cover-style treatment.");
             Require(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GlitchbongLogo.png") != null,
                 "The Glitchbong credit logo is missing or is not imported as a sprite.");
             Require(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/GitHub_Invertocat_White.png") != null &&
                     GameObject.Find("GitHub Invertocat")?.GetComponent<Image>()?.sprite != null,
                 "Every credit menu needs the official GitHub Invertocat sprite instead of placeholder letters.");
+            var cover = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/Brand/YesChefCover.png");
+            var startupSplash = UnityEngine.Object.FindFirstObjectByType<StartupSplashController>(FindObjectsInactive.Include);
+            Require(cover != null && startupSplash != null && startupSplash.splashRoot != null &&
+                    Mathf.Approximately(startupSplash.displaySeconds, 2f) &&
+                    startupSplash.splashRoot.GetComponentsInChildren<Image>(true).Any(image => image.sprite == cover),
+                "The supplied cover artwork must fill a two-second startup splash before the instruction screen.");
             Require(!UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None).Any(text => text.text == "GH"),
                 "The GH text placeholder must not remain in the UI.");
             Require(UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None).All(text => text.font != null),

@@ -73,6 +73,10 @@ namespace YesChef
             {
                 StartCoroutine(ProbeQuitModalAndQuit());
             }
+            else if (Array.IndexOf(arguments, "-yeschef-mobile-input-probe") >= 0)
+            {
+                StartCoroutine(ProbeMobileInputAndQuit());
+            }
             else if (Array.IndexOf(arguments, "-yeschef-capture") >= 0)
             {
                 StartCoroutine(CaptureAndQuit(false, false, false, false, false, false, false, false));
@@ -315,6 +319,43 @@ namespace YesChef
             Debug.Log($"YES_CHEF_QUIT_MODAL: pauseHidden={pauseHidden}, pauseRestored={pauseRestored}, " +
                       $"reachedResults={reachedResults}, resultsHidden={resultsHidden}, resultsRestored={resultsRestored}");
             Application.Quit(pauseHidden && pauseRestored && reachedResults && resultsHidden && resultsRestored ? 0 : 1);
+        }
+
+        private static IEnumerator ProbeMobileInputAndQuit()
+        {
+            yield return null;
+            var game = GameManager.Instance;
+            var player = game.player;
+            var mobile = player.mobileInput;
+            mobile.forceVisibleForTesting = true;
+            game.BeginGame();
+            yield return null;
+
+            var start = player.transform.position;
+            mobile.SetMovement(Vector2.right);
+            yield return new WaitForSeconds(.3f);
+            mobile.SetMovement(Vector2.zero);
+            var moveEnd = player.transform.position;
+            var moved = moveEnd.x > start.x + .5f;
+
+            var characterController = player.GetComponent<CharacterController>();
+            characterController.enabled = false;
+            player.transform.position = game.fridgeMenu.refrigerator.transform.position + new Vector3(-1.3f, 0f, 0f);
+            characterController.enabled = true;
+            yield return null;
+            mobile.PressAction();
+            yield return null;
+            var actionOpenedFridge = game.fridgeMenu.IsOpen;
+
+            mobile.SetControlsEnabled(false);
+            var disabled = !mobile.ControlsEnabled && !mobile.controlsRoot.activeSelf;
+            mobile.SetControlsEnabled(true);
+            var restored = mobile.ControlsEnabled;
+
+            Debug.Log($"YES_CHEF_MOBILE_INPUT_PROBE: moved={moved}, fridge={actionOpenedFridge}, " +
+                      $"disabled={disabled}, restored={restored}, start={start}, moveEnd={moveEnd}, " +
+                      $"heldVector={mobile.Movement}");
+            Application.Quit(moved && actionOpenedFridge && disabled && restored ? 0 : 1);
         }
     }
 }

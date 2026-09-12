@@ -128,3 +128,42 @@ Progress 5 verification boundary:
 40. Fixed and runtime-verified: number keys work only while the fridge catalogue is open. An immediate selection is queued until the door is visibly open; the chef is briefly locked, turns toward the fridge, bends/reaches inside, receives the ingredient midway through the action, then the fridge closes and control returns.
 41. Fixed: the speech-cloud source canvas now includes safe padding around every top scallop, uses the correct 600-by-250 aspect ratio, preserves that aspect in Unity, and gives the dialogue a taller padded layout so the outline is no longer abruptly cut.
 42. Fixed and runtime-verified: opening quit confirmation from either Pause or Game Over now disables the originating panel so only the quit modal is visible. Cancelling restores the exact originating panel and game phase.
+
+Some more required changes - 
+43. The cover image generated for the game i really liked the font. i want similar font style and UI to be used in the actual game. Update the UI appropriately to match the font and design aesthetics. The credit text and github source text can remain as the current font but other that those all the UI and text (i mean the menu UI only) i would want to match as per this cover art font. For the existing object text (sove, fridge ...) and customer text this current one is fine. Also rather than using the current theme of black and red buttons, you can customize the theme to match as per the theme used in the generated artwork of the cover.
+44. In case of customer dialogs, i have seen that the cloudy background is the same for all different lengths of text. in case i am having a little longer text, the text is kind of going out of the bounds from the cloud. I want to have an increase cloud size in case of that or reduce the text size to fit the cloud. Also the cloud position which is above the characters, are too much high make them a bit lower in height in the game.
+45. The game runs correctly in windows and webgl. But when i load the webgl on a phone browser, i will not be able to control the player chef and press the action button to perform tasks. So i want you to add a player movement 4 button type joystick on screen which should be in the lower middle centre of the screen. the design of it should be minimalistic translucent glass shade. Along with that i wanty a button to its right to perform all the actions. The fridge items should be touchable directly as it correctly works now as well. Also in pause menu i should be seeing a toggle to hide these player inputs in case someone playing on webgl in windows dont want to see those options. I want theese input options to be shown by default.
+
+IMPLEMENTATION STATUS - PROGRESS 11 - 2026-09-12
+
+43. Implemented without adding third-party font or artwork: menu text uses the project's existing TMP font with an original bold, outlined, spaced cover-style treatment. Instructions, pause, quit, results, fridge, toggles, and buttons now use warm teal, cream, honey, coral, and mint styling with layered card accents. Credit/source text, world labels, and customer text retain their prior typography.
+44. Implemented: dialogue clouds sit lower above every customer. A runtime layout component chooses short, medium, or long cloud dimensions and enables bounded TMP auto-sizing so longer rich-text lines remain inside the safe padded region.
+45. Implemented and built-player verified: WebGL and touch devices receive a lower-center translucent four-direction hold pad plus a separate Action button on its right. `PlayerController` combines this input with keyboard controls; Action invokes the same nearest-interactable path as E, so existing fridge catalogue touch buttons remain unchanged. A pause-menu Show Screen Controls toggle defaults on, persists the player's choice, and can hide the overlay for desktop WebGL players. Ordinary non-touch Windows builds keep the overlay hidden.
+
+Progress 11 verification boundary:
+- Unity 6000.3.11f1 isolated `BuildAndValidate` passed with all menu, adaptive-dialogue, and five touch-control references present.
+- A fresh Windows build passed. Its runtime mobile-input probe moved the chef 1.65 world units, opened the fridge through Action, hid the overlay, and restored it; the player exited with code 0.
+- A fresh WebGL build and portable itch.io ZIP completed successfully.
+- Final subjective menu appearance and real phone multi-touch still require a visible device/browser pass.
+
+PROGRESS 11 REVIEW REVISION - 2026-09-12
+
+- Replaced the four separate directional button visuals with one translucent circular glass controller. Its four large held-input zones remain independent, while all direction icons are now made from original rectangular chevron geometry instead of font glyphs, fixing the broken left/right symbols.
+- Raised the controller and circular Action control above the bottom instruction strip so their interactive bounds no longer overlap it.
+- Located the supplied cover in `Builds/itchiomedia`, copied the original 1408x1120 artwork into the Unity asset tree, and aligned the menus more closely with its cream dimensional lettering, forest-green outlines/cards, bright yellow accents, warm wood shadows, and red food highlights.
+- Added a two-second unscaled startup cover splash. The existing persistent music starts immediately underneath it; the normal instruction screen is revealed when the splash ends.
+- The regenerated editable scene passed the expanded isolated validator with the cover reference, two-second timing, circular controller, four touch zones, and eight geometry-based chevron strokes present.
+- Per request, no new Windows or WebGL player build was produced for this review revision.
+
+PROGRESS 12 INPUT AND DIALOGUE REVISION - 2026-09-12
+
+- Dialogue fitting now does both requested adjustments: it grows through short, medium, long, and extra-long cloud sizes, then progressively reduces the font down to a readable minimum if the full rich-text message still needs more room. The calculation uses the cloud's padded safe area and does not replace complete text with an ellipsis.
+- Replaced the four independent held touch zones with one continuous drag joystick. The center hub follows the active thumb, direction and movement strength update continuously while sliding, and the hub returns to center on release. The four existing geometric direction icons remain visible as guides.
+- The separate Action button, direct fridge item touch, enabled-by-default visibility behavior, pause toggle, raised placement, and desktop controls remain unchanged.
+- Per request, no Windows or WebGL player build was produced for this revision.
+
+POST-REVIEW BUILD - 2026-09-12
+
+- After approval, fresh Windows and WebGL players completed successfully. Updated Windows and portable itch.io WebGL ZIP packages are available in `Builds`.
+- The fresh Windows player's mobile-input probe exited with code 0: chef movement, Action opening the fridge, hiding controls, and restoring controls all passed.
+- Archive inspection confirmed the Windows executable/data payload and a WebGL root `index.html` with four `Build/` payloads and no backslash paths.

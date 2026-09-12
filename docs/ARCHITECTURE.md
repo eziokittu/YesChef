@@ -39,6 +39,9 @@ This project is deliberately split into small scripts with one clear job each. T
 | `RefrigeratorAnimator` | Smooth Blender-hinge door animation and synchronized interior-light fade |
 | `WorldLabelFader` | Softens station labels near the chef and hides them while a station surface is occupied |
 | `DialogueBubbleAnimator` | Plays the short unscaled-time overshoot when a clean customer speech bubble appears |
+| `DialogueBubbleLayout` | Grows through four cloud sizes, then reduces type to a safe minimum until the full dialogue fits inside the illustrated padding |
+| `MobileInputController`, `VirtualJoystick`, `TouchControlButton` | Feed continuous drag direction/magnitude and one-shot action presses into `PlayerController`; WebGL/touch visibility is player-toggleable |
+| `StartupSplashController` | Keeps the supplied cover above all menus for two unscaled seconds while persistent music begins, then reveals Instructions |
 | `ExternalLinkButton` | Opens the Glitchbong contact page and public source URL from the credits UI |
 | `AdaptiveCinemachineCamera` | Smooth Cinemachine follow lens with idle marsh, garden, and customer-road edge reveals |
 | `DayNightCycle` | Three-minute morning/sunset/night/sunrise timeline, four independent daylight window cones, and four outward night spill cones |
@@ -78,5 +81,6 @@ The chef and customer hierarchy separates facing/route movement, procedural posi
 - Customer return interval: `CustomerWindow.respawnMinimum` and `respawnMaximum`
 - Ingredient points: `IngredientRules.Score` in `GameTypes.cs`
 - Player speed/range: `PlayerController.moveSpeed` and `interactionRadius`
+- Screen-control default/persistence: `MobileInputController` (`YesChef.ScreenControls` PlayerPrefs key)
 
 These values are visible in the Inspector because the scene references and tuning values are serialized.

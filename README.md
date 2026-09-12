@@ -26,6 +26,7 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - **E:** Interact, place, pick up, deliver, or discard
 - **1 / 2 / 3 near the refrigerator:** Take vegetable, cheese, or meat
 - **Escape:** Pause or resume
+- **WebGL/touch:** Press and drag the circular glass joystick in any direction, then tap **Action** to use the nearest station or customer
 - Screen buttons: Start, Pause, Resume, Play Again, and Quit
 
 ## Implemented features
@@ -46,6 +47,9 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Persistent bottom control/guidance strip plus a scrollable, clickable refrigerator catalogue
 - Physical customers with randomized names, clothing, skin tones, hairstyles, and visible idle/walking animation
 - Timed rounded customer speech clouds above their heads, serving-table order cards and fading score popups
+- Adaptive lowered speech clouds that step through four larger sizes and reduce the font only as needed to keep the complete line inside the illustrated edge
+- Enabled-by-default drag joystick and action button for WebGL/touch, raised clear of the instruction strip, with a persistent pause-menu visibility toggle
+- Supplied YesChef cover artwork shown for two unscaled seconds while the soundtrack starts, before revealing the instruction screen
 - Outdoor road and walking customer routes, garden/flowers, tall windowed building, and animated faceted marsh with lotus plants
 - Four independent daylight window cones and four outward-facing night spill lights
 - Event-only kitchen mess effects plus delayed, persistent trash ants/flies with quiet spatial buzzing
@@ -53,7 +57,7 @@ Order score is the sum of ingredient values minus `floor(seconds open)`:
 - Original two-track calm felt-piano soundtrack, complete kitchen/customer SFX, dynamically timed exterior ambience, and proximity fly buzz
 - Animated refrigerator pickup: the door opens with sound, the chef bends and reaches inside, the item appears in hand, and the door closes with sound
 - Clean single-silhouette customer speech bubbles with a short entrance bounce
-- Polished TextMesh Pro HUD, held-item display, proximity-fading station labels and activity-only progress bars
+- Self-contained cover-inspired menu treatment using the existing TMP font, warm teal/cream/honey/coral cards, held-item display, proximity-fading station labels and activity-only progress bars
 
 ## Understanding the code
 

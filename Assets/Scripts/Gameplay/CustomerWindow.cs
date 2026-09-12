@@ -60,6 +60,7 @@ namespace YesChef
         public TMP_Text scorePopupText;
         public GameObject dialogueBubble;
         public DialogueBubbleAnimator dialogueAnimator;
+        public DialogueBubbleLayout dialogueLayout;
 
         [Header("Timing")]
         [Min(0f)] public float respawnMinimum = 2.5f;
@@ -282,6 +283,7 @@ namespace YesChef
             if (dialogueBubble != null) dialogueBubble.SetActive(true);
             dialogueAnimator?.PlayBounce();
             if (dialogueText != null) dialogueText.text = message;
+            dialogueLayout?.Configure(message);
             bubbleVisibleSeconds = dialogueDisplaySeconds;
         }
 
